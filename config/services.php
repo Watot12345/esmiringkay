@@ -35,4 +35,10 @@ return [
         ],
     ],
 
+    'turn' => [
+        'url' => env('TURN_URL', 'turn:turn.emiringkay.com:3478'),
+        'secret' => env('TURN_SECRET', 'emiringkay-local-turn-secret'),
+        'ttl' => (int) env('TURN_TTL', 86400),
+    ],
+
 ];

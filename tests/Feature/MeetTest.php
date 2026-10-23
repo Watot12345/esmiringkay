@@ -4,7 +4,9 @@ use App\Domain\Matching\Services\MatchingEngine;
 use App\Domain\Rooms\Events\KeepRequested;
 use App\Domain\Rooms\Events\MessageSent;
 use App\Domain\Rooms\Events\RoomEnded;
+use App\Domain\Rooms\Events\WebRtcSignal;
 use App\Domain\Rooms\Models\Room;
+use App\Domain\Rooms\Services\TurnCredentialService;
 use App\Models\User;
 use Illuminate\Support\Facades\Event;
 
@@ -50,6 +52,55 @@ test('matching engine enforces 7-day exclusion rule (FR-12)', function () {
 
     expect($engine->isExcluded($userA, $userB))->toBeTrue();
     expect($engine->isExcluded($userB, $userA))->toBeTrue();
+});
+
+test('turn credential service generates RFC 5766 ephemeral credentials', function () {
+    $service = app(TurnCredentialService::class);
+    $servers = $service->generateIceServers('user_test_99');
+
+    expect($servers)->toBeArray()->toHaveCount(2);
+    expect($servers[0]['urls'])->toContain('stun:stun.l.google.com:19302');
+    expect($servers[1])->toHaveKeys(['urls', 'username', 'credential']);
+    expect($servers[1]['username'])->toContain('user_test_99');
+});
+
+test('room live session delivers ice servers to frontend', function () {
+    $room = Room::create([
+        'vibe' => 'Chill',
+        'type' => 'video',
+        'started_at' => now(),
+    ]);
+
+    $response = $this->get("/room/{$room->id}");
+
+    $response->assertStatus(200);
+    $response->assertInertia(fn ($page) => $page
+        ->component('Room/Show')
+        ->has('room.id')
+        ->has('iceServers')
+        ->has('currentUserId')
+    );
+});
+
+test('webrtc signaling relays offer and ice candidate without persistence', function () {
+    Event::fake([WebRtcSignal::class]);
+
+    $room = Room::create([
+        'vibe' => 'Chill',
+        'type' => 'video',
+        'started_at' => now(),
+    ]);
+
+    $response = $this->postJson("/room/{$room->id}/signal", [
+        'signalType' => 'offer',
+        'payload' => ['type' => 'offer', 'sdp' => 'v=0...'],
+    ]);
+
+    $response->assertStatus(200)->assertJson(['success' => true]);
+
+    Event::assertDispatched(WebRtcSignal::class, function ($event) use ($room) {
+        return $event->roomId === $room->id && $event->signalType === 'offer';
+    });
 });
 
 test('user can broadcast a message in live room', function () {

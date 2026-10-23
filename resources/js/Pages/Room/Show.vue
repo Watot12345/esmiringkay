@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, onMounted, onUnmounted, watch } from 'vue';
 import { router } from '@inertiajs/vue3';
 import BrandLogo from '../../Components/BrandLogo.vue';
+import { useWebRTC } from '../../Composables/useWebRTC';
 
 interface Props {
   room: {
@@ -10,22 +11,84 @@ interface Props {
     type: string;
     started_at: string;
   };
+  currentUserId?: string;
+  iceServers?: any[];
 }
 
-const props = defineProps<Props>();
+const props = withDefaults(defineProps<Props>(), {
+  currentUserId: 'guest_user',
+  iceServers: () => [],
+});
 
 // Timer
 const seconds = ref(0);
 let timerInterval: any = null;
 
-onMounted(() => {
+// WebRTC Composable
+const {
+  localStream,
+  remoteStream,
+  isCamActive,
+  isMicActive,
+  isMaskMode,
+  isConnected,
+  isConnecting,
+  startMedia,
+  initPeerConnection,
+  handleSignal,
+  toggleCam,
+  toggleMic,
+  toggleMask,
+  closePeerConnection,
+} = useWebRTC();
+
+const localVideoRef = ref<HTMLVideoElement | null>(null);
+const remoteVideoRef = ref<HTMLVideoElement | null>(null);
+
+// Consent blur for video/camera (starts blurred per 08-workflow.md Section 2)
+const strangerUnblurred = ref(props.room.type === 'text');
+
+onMounted(async () => {
   timerInterval = setInterval(() => {
     seconds.value++;
   }, 1000);
+
+  // If room is video or mask mode, request media
+  if (props.room.type !== 'text') {
+    const isMask = props.room.type === 'mask';
+    const stream = await startMedia(true, true, isMask);
+    if (stream && localVideoRef.value) {
+      localVideoRef.value.srcObject = stream;
+    }
+
+    // Initialize peer connection
+    initPeerConnection(props.room.id, props.iceServers, true, async (signalType, payload) => {
+      // Send signal via POST /room/{id}/signal
+      try {
+        await fetch(`/room/${props.room.id}/signal`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '',
+          },
+          body: JSON.stringify({ signalType, payload }),
+        });
+      } catch (e) {
+        console.warn('Signal send error:', e);
+      }
+    });
+  }
+});
+
+watch(remoteStream, (newStream) => {
+  if (newStream && remoteVideoRef.value) {
+    remoteVideoRef.value.srcObject = newStream;
+  }
 });
 
 onUnmounted(() => {
   if (timerInterval) clearInterval(timerInterval);
+  closePeerConnection();
 });
 
 function formatTimer(s: number) {
@@ -49,14 +112,28 @@ const messages = ref<{ sender: 'you' | 'stranger' | 'system'; text: string; time
 ]);
 const inputMessage = ref('');
 
-function sendMessage() {
+async function sendMessage() {
   if (!inputMessage.value.trim()) return;
+  const text = inputMessage.value.trim();
   messages.value.push({
     sender: 'you',
-    text: inputMessage.value.trim(),
+    text,
     time: 'Now',
   });
   inputMessage.value = '';
+
+  try {
+    await fetch(`/room/${props.room.id}/message`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-TOKEN': (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '',
+      },
+      body: JSON.stringify({ body: text }),
+    });
+  } catch (e) {
+    console.error(e);
+  }
 
   // Friendly simulated reply after short delay
   setTimeout(() => {
@@ -69,11 +146,6 @@ function sendMessage() {
     }
   }, 1800);
 }
-
-// Consent blur for video/camera
-const strangerUnblurred = ref(props.room.type === 'text');
-const myCamActive = ref(true);
-const myMicActive = ref(true);
 
 // Activities drawer
 const showActivities = ref(false);
@@ -130,21 +202,62 @@ const selectedMood = ref<number | null>(null);
 const selectedKeep = ref<'friend' | 'rival' | 'spark' | 'confidant' | null>(null);
 const keepSent = ref(false);
 
-function handleSkip() {
+async function handleSkip() {
+  try {
+    await fetch(`/room/${props.room.id}/skip`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-TOKEN': (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '',
+      },
+    });
+  } catch (e) {
+    console.error(e);
+  }
   showPostCall.value = true;
 }
 
 function handlePanicSkip() {
-  // Panic skip immediately jumps back to home
+  closePeerConnection();
   router.visit('/');
 }
 
-function sendKeep(type: 'friend' | 'rival' | 'spark' | 'confidant') {
+async function sendKeep(type: 'friend' | 'rival' | 'spark' | 'confidant') {
   selectedKeep.value = type;
   keepSent.value = true;
+  try {
+    await fetch(`/room/${props.room.id}/keep`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-TOKEN': (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '',
+      },
+      body: JSON.stringify({ type }),
+    });
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+async function handleReport() {
+  try {
+    await fetch(`/room/${props.room.id}/report`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-TOKEN': (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '',
+      },
+      body: JSON.stringify({ category: 'Inappropriate Content' }),
+    });
+  } catch (e) {
+    console.error(e);
+  }
+  closePeerConnection();
+  router.visit('/');
 }
 
 function handleNextMatch() {
+  closePeerConnection();
   router.visit('/');
 }
 </script>
@@ -155,10 +268,13 @@ function handleNextMatch() {
     <!-- Top Action Bar -->
     <header class="h-14 px-4 border-b border-border bg-surface/80 backdrop-blur-md flex items-center justify-between z-20 shrink-0">
       <div class="flex items-center gap-3">
-        <!-- Brand Icon -->
+        <!-- Clean Brand Logo Mark -->
         <BrandLogo size="xs" :animated="false" />
         <span class="px-2.5 py-0.5 rounded-pill text-xs font-semibold bg-surface-2 border border-border text-primary">
           Vibe: {{ room.vibe }}
+        </span>
+        <span class="px-2 py-0.5 rounded-pill text-[11px] font-medium bg-surface-2 border border-border text-text-muted">
+          {{ room.type.toUpperCase() }}
         </span>
         <span class="font-mono text-xs text-text-muted">{{ formatTimer(seconds) }}</span>
       </div>
@@ -183,7 +299,7 @@ function handleNextMatch() {
     <!-- Main Live Body -->
     <main class="flex-1 flex flex-col md:flex-row overflow-hidden relative">
       
-      <!-- Video / Presence Stage -->
+      <!-- Video / WebRTC Presence Stage -->
       <section class="flex-1 bg-surface-2 relative flex items-center justify-center overflow-hidden min-h-[220px]">
         <!-- Floating Reactions -->
         <div class="absolute inset-0 pointer-events-none z-30 overflow-hidden">
@@ -199,29 +315,40 @@ function handleNextMatch() {
 
         <!-- Video Canvas or Placeholder -->
         <div class="w-full h-full flex flex-col items-center justify-center relative p-4">
-          <!-- Stranger Video Placeholder / Avatar -->
+          <!-- Stranger Video Tile -->
           <div
             :class="[
               'w-full h-full max-w-lg max-h-[360px] rounded-card border border-border flex flex-col items-center justify-center relative bg-surface overflow-hidden transition-all',
-              !strangerUnblurred && room.type !== 'text' ? 'backdrop-blur-xl' : ''
+              !strangerUnblurred && room.type !== 'text' ? 'backdrop-blur-2xl' : ''
             ]"
           >
-            <div class="flex flex-col items-center gap-3">
+            <!-- WebRTC Remote Video Feed -->
+            <video
+              v-show="remoteStream && strangerUnblurred"
+              ref="remoteVideoRef"
+              autoplay
+              playsinline
+              class="w-full h-full object-cover rounded-card"
+            ></video>
+
+            <!-- Fallback Avatar when video not active -->
+            <div v-show="!remoteStream || !strangerUnblurred" class="flex flex-col items-center gap-3">
               <div class="w-20 h-20 rounded-full bg-gradient-to-tr from-primary to-coral flex items-center justify-center text-3xl shadow-glow">
-                🎭
+                {{ isMaskMode ? '🎭' : '✨' }}
               </div>
               <span class="text-xs text-text-muted font-medium">Stranger (18+ Verified)</span>
             </div>
 
-            <!-- Consent Blur Button if not unblurred -->
+            <!-- Mutual Consent Blur Overlay per 08-workflow.md Section 2 -->
             <div
               v-if="!strangerUnblurred && room.type !== 'text'"
-              class="absolute inset-0 bg-surface/70 backdrop-blur-md flex flex-col items-center justify-center p-4 text-center"
+              class="absolute inset-0 bg-surface/75 backdrop-blur-xl flex flex-col items-center justify-center p-4 text-center z-10"
             >
-              <p class="text-xs text-text-muted mb-3">Both sides start blurred for privacy</p>
+              <span class="text-xl mb-1">🔒</span>
+              <p class="text-xs text-text-muted mb-3">Both sides start blurred for privacy and comfort</p>
               <button
                 @click="strangerUnblurred = true"
-                class="px-4 py-2 rounded-pill bg-mint text-[#0F1020] text-xs font-semibold shadow-glow"
+                class="px-4 py-2 rounded-pill bg-mint text-[#0F1020] text-xs font-semibold shadow-glow hover:opacity-90 active:scale-95 transition"
               >
                 Tap to Reveal Video
               </button>
@@ -231,10 +358,20 @@ function handleNextMatch() {
           <!-- Self PIP Tile (Top Right inside Video) -->
           <div
             v-if="room.type !== 'text'"
-            class="absolute top-6 right-6 w-28 h-20 rounded-input bg-surface border border-border shadow-glow flex flex-col items-center justify-center text-xs text-text-muted z-10"
+            class="absolute top-6 right-6 w-28 h-20 rounded-input bg-surface border border-border shadow-glow flex flex-col items-center justify-center text-xs text-text-muted z-10 overflow-hidden"
           >
-            <span>You</span>
-            <span class="text-[10px] text-mint">{{ myCamActive ? 'Camera On' : 'Muted' }}</span>
+            <video
+              v-show="localStream && isCamActive"
+              ref="localVideoRef"
+              autoplay
+              playsinline
+              muted
+              class="w-full h-full object-cover"
+            ></video>
+            <div v-show="!localStream || !isCamActive" class="flex flex-col items-center">
+              <span>You</span>
+              <span class="text-[10px] text-coral">Camera Off</span>
+            </div>
           </div>
 
           <!-- Breathing Activity Overlay if Active -->
@@ -335,16 +472,44 @@ function handleNextMatch() {
       </section>
     </main>
 
-    <!-- Bottom Controls Bar (Activities, Mic, Cam, Keep, Report) -->
+    <!-- Bottom Controls Bar (Activities, Mic, Cam, Mask, Keep, Report per 06-ui-ux-structure.md) -->
     <footer class="h-16 px-4 bg-surface border-t border-border flex items-center justify-between z-20 shrink-0">
       <div class="flex items-center gap-2">
-        <button
-          @click="showActivities = !showActivities"
-          class="px-3 py-1.5 rounded-pill bg-surface-2 border border-border text-xs font-medium hover:border-primary transition flex items-center gap-1.5"
-        >
-          <span>🎲</span>
-          <span>Activities</span>
-        </button>
+        <!-- Media Controls for Video/Mask mode -->
+        <template v-if="room.type !== 'text'">
+          <button
+            @click="toggleMic"
+            :class="[
+              'px-3 py-1.5 rounded-pill border text-xs font-medium transition flex items-center gap-1.5',
+              isMicActive ? 'bg-surface-2 border-border text-text-base' : 'bg-danger/10 border-danger text-danger'
+            ]"
+          >
+            <span>{{ isMicActive ? '🎙️' : '🔇' }}</span>
+            <span>{{ isMicActive ? 'Mic' : 'Muted' }}</span>
+          </button>
+
+          <button
+            @click="toggleCam"
+            :class="[
+              'px-3 py-1.5 rounded-pill border text-xs font-medium transition flex items-center gap-1.5',
+              isCamActive ? 'bg-surface-2 border-border text-text-base' : 'bg-danger/10 border-danger text-danger'
+            ]"
+          >
+            <span>{{ isCamActive ? '📹' : '🚫' }}</span>
+            <span>{{ isCamActive ? 'Cam' : 'Off' }}</span>
+          </button>
+
+          <button
+            @click="toggleMask"
+            :class="[
+              'px-3 py-1.5 rounded-pill border text-xs font-medium transition flex items-center gap-1.5',
+              isMaskMode ? 'bg-coral text-white border-coral font-semibold shadow-glow' : 'bg-surface-2 border-border text-text-muted'
+            ]"
+          >
+            <span>🎭</span>
+            <span>Mask</span>
+          </button>
+        </template>
 
         <button
           @click="toggleBreathing"
@@ -354,7 +519,7 @@ function handleNextMatch() {
           ]"
         >
           <span>🫁</span>
-          <span>Breathe Sync</span>
+          <span>Breathe</span>
         </button>
 
         <button
@@ -374,6 +539,7 @@ function handleNextMatch() {
           Keep as...
         </button>
         <button
+          @click="handleReport"
           class="px-2.5 py-1.5 rounded-pill text-xs text-text-muted hover:text-danger transition"
         >
           Report

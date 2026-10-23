@@ -7,8 +7,9 @@ use App\Domain\Moderation\Models\Report;
 use App\Domain\Rooms\Events\KeepRequested;
 use App\Domain\Rooms\Events\MessageSent;
 use App\Domain\Rooms\Events\RoomEnded;
-use App\Domain\Rooms\Models\Message;
+use App\Domain\Rooms\Events\WebRtcSignal;
 use App\Domain\Rooms\Models\Room;
+use App\Domain\Rooms\Services\TurnCredentialService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -18,7 +19,8 @@ use Inertia\Response;
 class MeetController extends Controller
 {
     public function __construct(
-        protected MatchingEngine $matchingEngine
+        protected MatchingEngine $matchingEngine,
+        protected TurnCredentialService $turnService
     ) {}
 
     /**
@@ -47,7 +49,7 @@ class MeetController extends Controller
         $ticketId = $validated['ticket_id'] ?? (string) Str::uuid();
         $userId = $validated['user_id'] ?? (string) ($request->user()?->id ?? session()->getId());
 
-        // Attempt instant pair with waiting user
+        // Attempt instant pair with waiting candidate
         $room = $this->matchingEngine->attemptMatch(
             ticketId: $ticketId,
             userId: $userId,
@@ -64,7 +66,7 @@ class MeetController extends Controller
             ]);
         }
 
-        // Otherwise enqueue and return ticket
+        // Otherwise enqueue
         $this->matchingEngine->enqueue(
             ticketId: $ticketId,
             userId: $userId,
@@ -72,7 +74,7 @@ class MeetController extends Controller
             mode: $validated['mode']
         );
 
-        // Fallback pair create for immediate testing/demo if requested
+        // Immediate room creation for test/demo
         $instantRoom = Room::create([
             'type' => $validated['mode'],
             'vibe' => $validated['vibe'],
@@ -91,9 +93,10 @@ class MeetController extends Controller
     /**
      * Room live session
      */
-    public function room(string $id): Response
+    public function room(Request $request, string $id): Response
     {
         $room = Room::findOrFail($id);
+        $userId = (string) ($request->user()?->id ?? 'guest_'.substr(session()->getId(), 0, 8));
 
         return Inertia::render('Room/Show', [
             'room' => [
@@ -102,7 +105,33 @@ class MeetController extends Controller
                 'type' => $room->type,
                 'started_at' => $room->started_at,
             ],
+            'currentUserId' => $userId,
+            'iceServers' => $this->turnService->generateIceServers($userId),
         ]);
+    }
+
+    /**
+     * WebRTC signaling relay (SDP Offer, SDP Answer, ICE candidates)
+     * Relayed directly via Reverb websocket event, never persisted per 01-context.md
+     */
+    public function signal(Request $request, string $id): JsonResponse
+    {
+        $validated = $request->validate([
+            'signalType' => 'required|string|in:offer,answer,candidate',
+            'payload' => 'required|array',
+        ]);
+
+        $room = Room::findOrFail($id);
+        $senderId = (string) ($request->user()?->id ?? 'guest_'.substr(session()->getId(), 0, 8));
+
+        broadcast(new WebRtcSignal(
+            roomId: $room->id,
+            senderId: $senderId,
+            signalType: $validated['signalType'],
+            payload: $validated['payload']
+        ))->toOthers();
+
+        return response()->json(['success' => true]);
     }
 
     /**
@@ -115,11 +144,9 @@ class MeetController extends Controller
         ]);
 
         $room = Room::findOrFail($id);
-        $senderId = (string) ($request->user()?->id ?? 'guest_'.substr(session()->getId(), 0, 6));
-
+        $senderId = (string) ($request->user()?->id ?? 'guest_'.substr(session()->getId(), 0, 8));
         $timestamp = now()->toTimeString();
 
-        // Broadcast realtime message to room channel
         broadcast(new MessageSent($room->id, $senderId, $validated['body'], $timestamp))->toOthers();
 
         return response()->json([
@@ -161,14 +188,13 @@ class MeetController extends Controller
         Report::create([
             'room_id' => $room->id,
             'reporter_id' => $reporterId,
-            'reported_id' => $reporterId, // Placeholder for anonymous peer
+            'reported_id' => $reporterId,
             'category' => $validated['category'],
             'note' => $validated['note'] ?? null,
             'status' => 'pending',
             'severity' => 'high',
         ]);
 
-        // End Room immediately upon severe flag per 08-workflow.md Section 5
         $room->update([
             'ended_at' => now(),
             'end_reason' => 'report',
@@ -188,7 +214,7 @@ class MeetController extends Controller
         ]);
 
         $room = Room::findOrFail($id);
-        $senderId = (string) ($request->user()?->id ?? 'guest_'.substr(session()->getId(), 0, 6));
+        $senderId = (string) ($request->user()?->id ?? 'guest_'.substr(session()->getId(), 0, 8));
 
         broadcast(new KeepRequested($room->id, $senderId, $validated['type']))->toOthers();
 
