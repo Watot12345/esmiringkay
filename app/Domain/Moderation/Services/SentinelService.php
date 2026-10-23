@@ -27,6 +27,45 @@ class SentinelService
     ) {}
 
     /**
+     * General text analysis for any text surface (Plaza, prompts, DMs).
+     *
+     * @return array{flagged: bool, flag_reason: ?string, category: ?string, is_crisis: bool}
+     */
+    public function analyze(string $body): array
+    {
+        foreach ($this->crisisPatterns as $pattern) {
+            if (preg_match($pattern, $body)) {
+                return [
+                    'flagged' => true,
+                    'flag_reason' => 'User may need immediate emotional support or helpline resources.',
+                    'category' => 'crisis',
+                    'is_crisis' => true,
+                ];
+            }
+        }
+
+        foreach ($this->severePatterns as $category => $patterns) {
+            foreach ($patterns as $pattern) {
+                if (preg_match($pattern, $body)) {
+                    return [
+                        'flagged' => true,
+                        'flag_reason' => "Violated safety guidelines ({$category}).",
+                        'category' => $category,
+                        'is_crisis' => false,
+                    ];
+                }
+            }
+        }
+
+        return [
+            'flagged' => false,
+            'flag_reason' => null,
+            'category' => null,
+            'is_crisis' => false,
+        ];
+    }
+
+    /**
      * Inspect text message in real-time per 09-agents.md Sentinel role.
      *
      * @return array{flagged: bool, action: string, category: ?string, reason: ?string, is_crisis: bool}

@@ -161,10 +161,13 @@ async function handleStart() {
           <span>⭕</span>
           <span class="font-semibold">Circle</span>
         </Link>
-        <div class="hidden sm:flex bg-[#1A1B33]/80 backdrop-blur-xl px-3.5 py-1.5 rounded-full border border-[#34376A]/60 text-xs text-[#A9A6CC] items-center gap-1.5">
+        <Link
+          href="/plaza"
+          class="bg-[#1A1B33]/80 hover:bg-[#24264A] backdrop-blur-xl px-3.5 py-1.5 rounded-full border border-[#34376A]/60 text-xs text-[#A9A6CC] hover:text-white flex items-center gap-1.5 transition shadow-sm"
+        >
           <span>🏮</span>
-          <span>Plaza</span>
-        </div>
+          <span class="font-semibold">Plaza</span>
+        </Link>
       </div>
     </header>
 

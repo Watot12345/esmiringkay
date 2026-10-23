@@ -75,13 +75,22 @@ function getBadgeStyle(type: string) {
         <span class="text-xs font-semibold text-[#8B7CFF]">Your Circle</span>
       </div>
 
-      <Link
-        href="/"
-        class="px-3.5 py-1.5 rounded-full text-xs font-semibold bg-[#1A1B33] border border-[#34376A] text-[#F4F2FF] hover:border-[#8B7CFF] transition flex items-center gap-1.5 shadow-sm"
-      >
-        <span>💫</span>
-        <span>Meet New Strangers</span>
-      </Link>
+      <div class="flex items-center gap-2">
+        <Link
+          href="/plaza"
+          class="px-3 py-1.5 rounded-full text-xs font-semibold bg-[#1A1B33] border border-[#34376A] text-[#A9A6CC] hover:text-white hover:border-[#8B7CFF] transition flex items-center gap-1.5 shadow-sm"
+        >
+          <span>🏮</span>
+          <span>Plaza</span>
+        </Link>
+        <Link
+          href="/"
+          class="px-3.5 py-1.5 rounded-full text-xs font-semibold bg-[#1A1B33] border border-[#34376A] text-[#F4F2FF] hover:border-[#8B7CFF] transition flex items-center gap-1.5 shadow-sm"
+        >
+          <span>💫</span>
+          <span>Meet</span>
+        </Link>
+      </div>
     </header>
 
     <!-- Main Content Container -->

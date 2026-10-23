@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\CircleController;
 use App\Http\Controllers\MeetController;
+use App\Http\Controllers\PlazaController;
 use Illuminate\Support\Facades\Route;
 
 // 1. Landing & Meet flow
@@ -28,3 +29,13 @@ Route::get('/circle', [CircleController::class, 'index'])->name('circle.index');
 Route::get('/circle/{id}', [CircleController::class, 'show'])->name('circle.show');
 Route::post('/circle/{id}/message', [CircleController::class, 'sendMessage'])->name('circle.message');
 Route::post('/circle/{id}/end', [CircleController::class, 'end'])->name('circle.end');
+
+// 6. Plaza (Group rooms, events, daily prompt, badges - Phase 6)
+Route::get('/plaza', [PlazaController::class, 'index'])->name('plaza.index');
+Route::post('/plaza/rooms', [PlazaController::class, 'createRoom'])->name('plaza.rooms.create');
+Route::get('/plaza/rooms/{id}', [PlazaController::class, 'show'])->name('plaza.rooms.show');
+Route::post('/plaza/rooms/{id}/message', [PlazaController::class, 'message'])->name('plaza.rooms.message');
+Route::post('/plaza/rooms/{id}/leave', [PlazaController::class, 'leave'])->name('plaza.rooms.leave');
+Route::post('/plaza/rooms/{id}/moderate', [PlazaController::class, 'moderate'])->name('plaza.rooms.moderate');
+Route::post('/plaza/prompt/answer', [PlazaController::class, 'answerDailyPrompt'])->name('plaza.prompt.answer');
+Route::post('/plaza/events/{id}/rsvp', [PlazaController::class, 'rsvpEvent'])->name('plaza.events.rsvp');
