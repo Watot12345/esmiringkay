@@ -1,9 +1,31 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+@theme {
+  --color-bg: #0F1020;
+  --color-surface: #1A1B33;
+  --color-surface-2: #24264A;
+  --color-text-base: #F4F2FF;
+  --color-text-muted: #A9A6CC;
+  --color-primary: #8B7CFF;
+  --color-coral: #FF8A7A;
+  --color-mint: #5EEAD4;
+  --color-gold: #FFD36E;
+  --color-danger: #FF5C7A;
+  --color-border: #34376A;
+
+  --radius-card: 20px;
+  --radius-pill: 999px;
+  --radius-input: 12px;
+
+  --font-display: 'Sora', 'Poppins', sans-serif;
+  --font-body: 'Inter', sans-serif;
+
+  --shadow-glow: 0 8px 30px rgba(139, 124, 255, 0.25);
+  --shadow-glow-coral: 0 8px 30px rgba(255, 138, 122, 0.25);
+  --shadow-glow-mint: 0 8px 30px rgba(94, 234, 212, 0.25);
+}
 
 :root {
-  /* Dark (default) Soft Night Plaza from 07-theme.md */
   --bg: #0F1020;
   --surface: #1A1B33;
   --surface-2: #24264A;
@@ -17,24 +39,10 @@
   --border: #34376A;
 }
 
-.light {
-  /* Light mode tokens from 07-theme.md */
-  --bg: #FAF8FF;
-  --surface: #FFFFFF;
-  --surface-2: #F0ECFA;
-  --text: #1B1B2F;
-  --text-muted: #6B6890;
-  --primary: #6C5CE7;
-  --accent-coral: #F2685A;
-  --accent-mint: #14B8A6;
-  --accent-gold: #E8A317;
-  --danger: #E11D48;
-  --border: #E2DCF3;
-}
-
 body {
   background-color: var(--bg);
   color: var(--text);
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
 }

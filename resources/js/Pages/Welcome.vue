@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { router } from '@inertiajs/vue3';
 import BrandLogo from '../Components/BrandLogo.vue';
 import LoadingScreen from '../Components/LoadingScreen.vue';
@@ -17,17 +17,71 @@ const props = withDefaults(defineProps<Props>(), {
 type VibeType = 'Chill' | 'Vent' | 'Play' | 'Spark' | 'Debate';
 type ModeType = 'text' | 'video' | 'mask';
 
-const vibes = [
-  { name: 'Chill' as VibeType, color: 'text-mint border-mint/40 bg-mint/10', icon: '🌿', desc: 'Calm casual company' },
-  { name: 'Vent' as VibeType, color: 'text-[#7FB3FF] border-[#7FB3FF]/40 bg-[#7FB3FF]/10', icon: '☁️', desc: 'Safe space to decompress' },
-  { name: 'Play' as VibeType, color: 'text-gold border-gold/40 bg-gold/10', icon: '🎮', desc: 'Games, trivia, and banter' },
-  { name: 'Spark' as VibeType, color: 'text-coral border-coral/40 bg-coral/10', icon: '✨', desc: 'Curious & romantic vibes' },
-  { name: 'Debate' as VibeType, color: 'text-primary border-primary/40 bg-primary/10', icon: '⚡', desc: 'Playful friendly discussions' },
+interface VibeOption {
+  name: VibeType;
+  tagline: string;
+  icon: string;
+  accent: string;
+  borderClass: string;
+  bgClass: string;
+  glowClass: string;
+}
+
+const vibes: VibeOption[] = [
+  {
+    name: 'Chill',
+    tagline: 'Soft, relaxing company',
+    icon: '🌿',
+    accent: '#5EEAD4',
+    borderClass: 'border-mint',
+    bgClass: 'bg-mint/15',
+    glowClass: 'shadow-[0_0_24px_rgba(94,234,212,0.35)]',
+  },
+  {
+    name: 'Vent',
+    tagline: 'Safe space to decompress',
+    icon: '☁️',
+    accent: '#7FB3FF',
+    borderClass: 'border-[#7FB3FF]',
+    bgClass: 'bg-[#7FB3FF]/15',
+    glowClass: 'shadow-[0_0_24px_rgba(127,179,255,0.35)]',
+  },
+  {
+    name: 'Play',
+    tagline: 'Trivia duels & banter',
+    icon: '🎮',
+    accent: '#FFD36E',
+    borderClass: 'border-gold',
+    bgClass: 'bg-gold/15',
+    glowClass: 'shadow-[0_0_24px_rgba(255,211,110,0.35)]',
+  },
+  {
+    name: 'Spark',
+    tagline: 'Warm curious connections',
+    icon: '✨',
+    accent: '#FF8A7A',
+    borderClass: 'border-coral',
+    bgClass: 'bg-coral/15',
+    glowClass: 'shadow-[0_0_24px_rgba(255,138,122,0.35)]',
+  },
+  {
+    name: 'Debate',
+    tagline: 'Playful friendly hot takes',
+    icon: '⚡',
+    accent: '#8B7CFF',
+    borderClass: 'border-primary',
+    bgClass: 'bg-primary/15',
+    glowClass: 'shadow-[0_0_24px_rgba(139,124,255,0.35)]',
+  },
 ];
 
 const selectedVibe = ref<VibeType>((props.defaultVibe as VibeType) || 'Chill');
 const selectedMode = ref<ModeType>('text');
 const isFindingMatch = ref(false);
+
+const activeVibeData = computed(() => {
+  return vibes.find((v) => v.name === selectedVibe.value) || vibes[0];
+});
 
 async function handleStart() {
   isFindingMatch.value = true;
@@ -48,7 +102,7 @@ async function handleStart() {
     if (data.room_id) {
       setTimeout(() => {
         router.visit(`/room/${data.room_id}`);
-      }, 1200); // Graceful 1.2s loading with kissing logo
+      }, 1400); // Elegant kissing bubbles pause
     }
   } catch (e) {
     console.error(e);
@@ -58,98 +112,204 @@ async function handleStart() {
 </script>
 
 <template>
-  <!-- Full Screen Loading Overlay using the Kissing Bubbles Animated Logo Mark -->
-  <LoadingScreen
-    v-if="isFindingMatch"
-    :status-text="`Finding someone in ${selectedVibe} vibe...`"
-  />
+  <div class="min-h-screen bg-[#0F1020] text-[#F4F2FF] flex flex-col justify-between relative overflow-hidden select-none font-sans">
+    
+    <!-- Ambient Dreamy Night Sky Background with Floating Lantern Orbs -->
+    <div class="absolute inset-0 pointer-events-none overflow-hidden z-0">
+      <!-- Glow behind logo reacting to selected vibe -->
+      <div
+        class="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[520px] h-[520px] rounded-full blur-[130px] opacity-25 transition-all duration-700 pointer-events-none"
+        :style="{ backgroundColor: activeVibeData.accent }"
+      ></div>
 
-  <div class="min-h-screen bg-bg text-text-base flex flex-col justify-between p-4 md:p-8">
-    <!-- Header -->
-    <header class="w-full max-w-xl mx-auto flex items-center justify-between">
-      <div class="flex items-center gap-2">
-        <span class="w-2.5 h-2.5 rounded-full bg-mint animate-pulse"></span>
-        <span class="text-xs text-text-muted font-medium">{{ onlineCount.toLocaleString() }} online</span>
+      <!-- Secondary soft coral lantern -->
+      <div class="absolute -top-20 -right-20 w-80 h-80 rounded-full bg-[#FF8A7A]/10 blur-[100px] pointer-events-none"></div>
+
+      <!-- Subtle indigo ground bloom -->
+      <div class="absolute -bottom-24 left-1/4 w-96 h-96 rounded-full bg-[#8B7CFF]/15 blur-[120px] pointer-events-none"></div>
+
+      <!-- Twinkling floating particles -->
+      <div class="absolute top-16 left-12 w-1.5 h-1.5 rounded-full bg-[#5EEAD4] opacity-60 animate-ping"></div>
+      <div class="absolute top-36 right-24 w-2 h-2 rounded-full bg-[#FFD36E] opacity-70 animate-pulse"></div>
+      <div class="absolute bottom-40 left-20 w-1.5 h-1.5 rounded-full bg-[#FF8A7A] opacity-50 animate-pulse"></div>
+      <div class="absolute bottom-28 right-16 w-1 h-1 rounded-full bg-white opacity-80 animate-ping"></div>
+    </div>
+
+    <!-- Full Screen Loading Overlay with Kissing Bubbles Logo Mark -->
+    <LoadingScreen
+      v-if="isFindingMatch"
+      :status-text="`Finding someone in ${selectedVibe} vibe...`"
+    />
+
+    <!-- Top Navigation Bar -->
+    <header class="w-full max-w-4xl mx-auto px-6 py-5 flex items-center justify-between relative z-10">
+      <div class="flex items-center gap-2.5 bg-[#1A1B33]/80 backdrop-blur-xl px-3.5 py-1.5 rounded-full border border-[#34376A]/60 shadow-lg">
+        <span class="relative flex h-2.5 w-2.5">
+          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#5EEAD4] opacity-75"></span>
+          <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#5EEAD4]"></span>
+        </span>
+        <span class="text-xs text-[#A9A6CC] font-medium tracking-wide">
+          <strong class="text-white font-semibold">{{ onlineCount.toLocaleString() }}</strong> wandering the Plaza
+        </span>
       </div>
-      <div class="px-3 py-1 rounded-pill bg-surface border border-border text-xs text-text-muted">
-        Soft Night Plaza
+
+      <div class="flex items-center gap-2">
+        <div class="bg-[#1A1B33]/80 backdrop-blur-xl px-3.5 py-1.5 rounded-full border border-[#34376A]/60 text-xs text-[#A9A6CC] flex items-center gap-1.5">
+          <span>🏮</span>
+          <span class="hidden sm:inline">Soft Night Plaza</span>
+        </div>
       </div>
     </header>
 
-    <!-- Main Meet Screen -->
-    <main class="w-full max-w-xl mx-auto flex flex-col items-center justify-center my-auto py-8">
-      <!-- Clean Brand Logo Mark Only -->
-      <BrandLogo size="lg" :animated="true" :show-wordmark="true" />
+    <!-- Main Hero Presentation -->
+    <main class="w-full max-w-2xl mx-auto px-4 py-4 flex flex-col items-center justify-center my-auto relative z-10">
+      
+      <!-- Brand Logo Stage with Subtle Glow Halo -->
+      <div class="relative flex flex-col items-center mb-6 group cursor-default">
+        <div class="absolute -inset-4 bg-gradient-to-r from-[#8B7CFF]/20 via-[#5EEAD4]/15 to-[#FF8A7A]/20 rounded-full blur-xl opacity-60 group-hover:opacity-100 transition duration-700"></div>
+        <BrandLogo size="lg" :animated="true" :show-wordmark="true" />
+      </div>
 
-      <p class="text-xs md:text-sm text-text-muted text-center mt-3 mb-8 max-w-xs">
-        Say hi to someone new. Meet. Breathe. Connect.
-      </p>
+      <!-- Tagline -->
+      <div class="text-center mb-8">
+        <h2 class="text-base sm:text-lg font-semibold tracking-tight text-white/95">
+          Say hi to someone new.
+        </h2>
+        <p class="text-xs sm:text-sm text-[#A9A6CC] mt-1 font-normal">
+          No endless swiping. No performative profiles. Just real human decompressing.
+        </p>
+      </div>
 
-      <!-- Vibe Selector -->
-      <div class="w-full flex flex-col items-center gap-3 mb-8">
-        <span class="text-xs uppercase tracking-wider text-text-muted font-semibold">Select your Vibe</span>
-        <div class="flex flex-wrap justify-center gap-2">
+      <!-- Interactive Vibe Selector Grid -->
+      <div class="w-full max-w-xl flex flex-col items-center mb-7">
+        <div class="flex items-center justify-between w-full px-2 mb-3">
+          <span class="text-xs uppercase tracking-wider text-[#A9A6CC] font-bold flex items-center gap-1.5">
+            <span>✨</span> What vibe are you feeling?
+          </span>
+          <span class="text-xs font-medium" :style="{ color: activeVibeData.accent }">
+            {{ activeVibeData.tagline }}
+          </span>
+        </div>
+
+        <!-- 5 Interactive Vibe Cards -->
+        <div class="grid grid-cols-2 sm:grid-cols-5 gap-2.5 w-full">
           <button
             v-for="vibe in vibes"
             :key="vibe.name"
             @click="selectedVibe = vibe.name"
             :class="[
-              'px-4 py-2 rounded-pill text-xs md:text-sm font-medium border transition-all duration-200',
+              'relative group flex flex-col items-center p-3 rounded-2xl border transition-all duration-300 transform active:scale-95 text-center',
               selectedVibe === vibe.name
-                ? vibe.color + ' ring-2 ring-primary/40 shadow-glow'
-                : 'bg-surface text-text-muted border-border hover:border-primary/50'
+                ? `${vibe.bgClass} ${vibe.borderClass} ${vibe.glowClass} -translate-y-1 scale-105`
+                : 'bg-[#1A1B33]/70 hover:bg-[#24264A]/80 border-[#34376A]/50 hover:border-[#8B7CFF]/50 text-[#A9A6CC] hover:text-white'
             ]"
           >
-            <span class="mr-1.5">{{ vibe.icon }}</span>
-            <span>{{ vibe.name }}</span>
+            <!-- Animated Icon -->
+            <span class="text-2xl mb-1 transition-transform duration-300 group-hover:scale-125">
+              {{ vibe.icon }}
+            </span>
+
+            <span
+              :class="[
+                'text-xs font-bold tracking-wide transition-colors',
+                selectedVibe === vibe.name ? 'text-white' : 'text-[#A9A6CC] group-hover:text-white'
+              ]"
+            >
+              {{ vibe.name }}
+            </span>
+
+            <!-- Active Indicator Dot -->
+            <span
+              v-if="selectedVibe === vibe.name"
+              class="w-1.5 h-1.5 rounded-full mt-1.5 animate-pulse"
+              :style="{ backgroundColor: vibe.accent }"
+            ></span>
           </button>
         </div>
       </div>
 
-      <!-- Mode Selector (Text | Video | Mask Video per 06-ui-ux-structure.md) -->
-      <div class="flex items-center bg-surface p-1 rounded-pill border border-border mb-8 text-xs font-medium">
-        <button
-          @click="selectedMode = 'text'"
-          :class="[
-            'px-4 py-1.5 rounded-pill transition',
-            selectedMode === 'text' ? 'bg-primary text-white shadow-glow' : 'text-text-muted hover:text-text-base'
-          ]"
-        >
-          💬 Text
-        </button>
-        <button
-          @click="selectedMode = 'video'"
-          :class="[
-            'px-4 py-1.5 rounded-pill transition',
-            selectedMode === 'video' ? 'bg-primary text-white shadow-glow' : 'text-text-muted hover:text-text-base'
-          ]"
-        >
-          📹 Video
-        </button>
-        <button
-          @click="selectedMode = 'mask'"
-          :class="[
-            'px-4 py-1.5 rounded-pill transition',
-            selectedMode === 'mask' ? 'bg-primary text-white shadow-glow' : 'text-text-muted hover:text-text-base'
-          ]"
-        >
-          🎭 Mask Mode
-        </button>
+      <!-- Mode Selector (Text | Video | Mask Video) -->
+      <div class="w-full max-w-md flex flex-col items-center mb-8">
+        <div class="w-full bg-[#1A1B33]/90 backdrop-blur-xl p-1.5 rounded-full border border-[#34376A]/70 shadow-inner flex items-center justify-between">
+          <button
+            @click="selectedMode = 'text'"
+            :class="[
+              'flex-1 py-2 rounded-full text-xs font-semibold transition-all duration-200 flex items-center justify-center gap-1.5',
+              selectedMode === 'text'
+                ? 'bg-gradient-to-r from-[#8B7CFF] to-[#6C5CE7] text-white shadow-[0_4px_16px_rgba(139,124,255,0.4)]'
+                : 'text-[#A9A6CC] hover:text-white hover:bg-white/5'
+            ]"
+          >
+            <span>💬</span>
+            <span>Text Chat</span>
+          </button>
+
+          <button
+            @click="selectedMode = 'video'"
+            :class="[
+              'flex-1 py-2 rounded-full text-xs font-semibold transition-all duration-200 flex items-center justify-center gap-1.5',
+              selectedMode === 'video'
+                ? 'bg-gradient-to-r from-[#8B7CFF] to-[#6C5CE7] text-white shadow-[0_4px_16px_rgba(139,124,255,0.4)]'
+                : 'text-[#A9A6CC] hover:text-white hover:bg-white/5'
+            ]"
+          >
+            <span>📹</span>
+            <span>Video Call</span>
+          </button>
+
+          <button
+            @click="selectedMode = 'mask'"
+            :class="[
+              'flex-1 py-2 rounded-full text-xs font-semibold transition-all duration-200 flex items-center justify-center gap-1.5',
+              selectedMode === 'mask'
+                ? 'bg-gradient-to-r from-[#FF8A7A] to-[#F2685A] text-white shadow-[0_4px_16px_rgba(255,138,122,0.4)]'
+                : 'text-[#A9A6CC] hover:text-white hover:bg-white/5'
+            ]"
+          >
+            <span>🎭</span>
+            <span>Mask Mode</span>
+          </button>
+        </div>
+
+        <p class="text-[11px] text-[#A9A6CC]/70 mt-2 text-center">
+          <span v-if="selectedMode === 'text'">Casual anonymous messaging. Quiet & low stress.</span>
+          <span v-else-if="selectedMode === 'video'">Camera starts safely blurred until both sides tap reveal.</span>
+          <span v-else>Face-obscuring avatar mask so you stay completely anonymous.</span>
+        </p>
       </div>
 
-      <!-- Start Button with Soft Pulsing Glow -->
+      <!-- Start Button with Glowing Lantern Aura -->
       <button
         @click="handleStart"
-        class="w-52 py-4 rounded-pill bg-primary hover:opacity-90 active:scale-95 text-white font-semibold text-base shadow-glow transition duration-200 flex items-center justify-center gap-2"
+        class="relative group px-10 py-4 rounded-full bg-gradient-to-r from-[#8B7CFF] via-[#7B68EE] to-[#FF8A7A] text-white font-bold text-sm sm:text-base shadow-[0_8px_32px_rgba(139,124,255,0.45)] hover:shadow-[0_12px_42px_rgba(139,124,255,0.65)] hover:scale-105 active:scale-95 transition-all duration-300 flex items-center gap-3 overflow-hidden cursor-pointer"
       >
-        <span>Start Meeting</span>
-        <span class="text-sm">→</span>
+        <!-- Shimmer light sweep on button -->
+        <span class="absolute inset-0 w-1/2 h-full bg-white/20 skew-x-12 -translate-x-full group-hover:translate-x-[300%] transition-transform duration-1000 ease-in-out"></span>
+
+        <span>Enter the Plaza</span>
+        <span class="text-lg transition-transform duration-300 group-hover:translate-x-1">➔</span>
       </button>
+
+      <span class="text-[11px] text-[#A9A6CC]/60 mt-3 flex items-center gap-1.5">
+        <span>⚡</span> Matches average ~8 seconds
+      </span>
     </main>
 
-    <!-- Footer Note -->
-    <footer class="w-full max-w-xl mx-auto text-center py-4 text-xs text-text-muted">
-      Anonymous & safe. Instant skip anytime. 18+ only.
+    <!-- Bottom Reassurance Banner -->
+    <footer class="w-full max-w-xl mx-auto px-4 py-5 flex items-center justify-center gap-6 text-[11px] text-[#A9A6CC]/60 relative z-10 border-t border-[#34376A]/30">
+      <div class="flex items-center gap-1.5">
+        <span>🛡️</span>
+        <span>Accountable & 18+</span>
+      </div>
+      <div class="flex items-center gap-1.5">
+        <span>⚡</span>
+        <span>Instant Skip Anytime</span>
+      </div>
+      <div class="flex items-center gap-1.5">
+        <span>🔒</span>
+        <span>Zero Call Recording</span>
+      </div>
     </footer>
+
   </div>
 </template>
