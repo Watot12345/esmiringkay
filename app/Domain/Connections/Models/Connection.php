@@ -14,8 +14,11 @@ class Connection extends Model
 
     // Types per 01-context.md Section 5: friend, rival, spark, confidant
     public const TYPE_FRIEND = 'friend';
+
     public const TYPE_RIVAL = 'rival';
+
     public const TYPE_SPARK = 'spark';
+
     public const TYPE_CONFIDANT = 'confidant';
 
     protected $fillable = [

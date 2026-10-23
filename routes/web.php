@@ -16,10 +16,14 @@ Route::post('/room/{id}/skip', [MeetController::class, 'skip'])->name('room.skip
 Route::post('/room/{id}/report', [MeetController::class, 'report'])->name('room.report');
 Route::post('/room/{id}/keep', [MeetController::class, 'keep'])->name('room.keep');
 
-// 3. Moderation appeals (08-workflow.md Section 5)
+// 3. Collaborative Room Activities (FR-23 & Phase 5)
+Route::get('/room/{id}/activity/{kind}', [MeetController::class, 'getActivity'])->name('room.activity.get');
+Route::post('/room/{id}/activity', [MeetController::class, 'updateActivity'])->name('room.activity.update');
+
+// 4. Moderation appeals (08-workflow.md Section 5)
 Route::post('/appeal', [MeetController::class, 'appeal'])->name('appeal');
 
-// 4. Phase 4: Circle & Keeps (01-context.md Section 5 & 06-ui-ux-structure.md)
+// 5. Circle & Keeps (01-context.md Section 5 & 06-ui-ux-structure.md)
 Route::get('/circle', [CircleController::class, 'index'])->name('circle.index');
 Route::get('/circle/{id}', [CircleController::class, 'show'])->name('circle.show');
 Route::post('/circle/{id}/message', [CircleController::class, 'sendMessage'])->name('circle.message');

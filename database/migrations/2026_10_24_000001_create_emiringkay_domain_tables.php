@@ -63,7 +63,7 @@ return new class extends Migration
             $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
             $table->text('body');
             $table->timestamps();
-            
+
             $table->index(['room_id', 'created_at']);
         });
 

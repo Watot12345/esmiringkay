@@ -3,6 +3,8 @@ import { ref, onMounted, onUnmounted, watch } from 'vue';
 import { router } from '@inertiajs/vue3';
 import BrandLogo from '../../Components/BrandLogo.vue';
 import { useWebRTC } from '../../Composables/useWebRTC';
+import DoodleBoard from '../../Components/Activities/DoodleBoard.vue';
+import TriviaDuel from '../../Components/Activities/TriviaDuel.vue';
 
 interface Props {
   room: {
@@ -149,7 +151,7 @@ async function sendMessage() {
 
 // Activities drawer
 const showActivities = ref(false);
-const activeActivity = ref<'none' | 'breathing' | 'icebreaker' | 'trivia'>('none');
+const activeActivity = ref<'none' | 'doodle' | 'trivia' | 'breathing' | 'icebreaker'>('none');
 const breathPhase = ref<'Inhale' | 'Hold' | 'Exhale'>('Inhale');
 let breathInterval: any = null;
 
@@ -396,21 +398,89 @@ function handleNextMatch() {
             </button>
           </div>
 
-          <!-- Icebreaker Question Overlay if Active -->
+          <!-- Doodle Board Overlay if Active -->
           <div
-            v-if="activeActivity === 'icebreaker'"
-            class="absolute top-4 left-1/2 -translate-x-1/2 w-11/12 max-w-md bg-surface border border-primary/40 rounded-card p-4 shadow-glow z-20 flex items-center justify-between"
+            v-if="activeActivity === 'doodle'"
+            class="absolute inset-0 bg-[#0F1020]/90 backdrop-blur-md z-20 flex flex-col items-center justify-center p-4 sm:p-6"
           >
-            <div class="pr-2">
-              <span class="text-[10px] uppercase font-bold text-coral">Conversation Starter</span>
-              <p class="text-xs text-text-base font-medium mt-0.5">{{ icebreakerQuestion }}</p>
+            <div class="w-full max-w-md relative">
+              <button
+                @click="activeActivity = 'none'"
+                class="absolute -top-3 -right-3 w-7 h-7 rounded-full bg-[#24264A] text-white border border-[#34376A] flex items-center justify-center text-xs z-30 hover:bg-danger transition cursor-pointer"
+              >
+                ✕
+              </button>
+              <DoodleBoard :room-id="room.id" />
             </div>
-            <button
-              @click="activeActivity = 'none'"
-              class="text-xs text-text-muted hover:text-text-base p-1"
-            >
-              ✕
-            </button>
+          </div>
+
+          <!-- Trivia Duel Overlay if Active -->
+          <div
+            v-if="activeActivity === 'trivia'"
+            class="absolute inset-0 bg-[#0F1020]/90 backdrop-blur-md z-20 flex flex-col items-center justify-center p-4 sm:p-6"
+          >
+            <div class="w-full max-w-md relative">
+              <button
+                @click="activeActivity = 'none'"
+                class="absolute -top-3 -right-3 w-7 h-7 rounded-full bg-[#24264A] text-white border border-[#34376A] flex items-center justify-center text-xs z-30 hover:bg-danger transition cursor-pointer"
+              >
+                ✕
+              </button>
+              <TriviaDuel :room-id="room.id" />
+            </div>
+          </div>
+
+          <!-- Activities Drawer Modal -->
+          <div
+            v-if="showActivities"
+            class="absolute inset-0 bg-[#0F1020]/80 backdrop-blur-md z-30 flex items-center justify-center p-4"
+          >
+            <div class="bg-[#1A1B33] border border-[#34376A] rounded-2xl max-w-sm w-full p-5 shadow-2xl relative">
+              <div class="flex items-center justify-between pb-3 border-b border-[#34376A]/50 mb-4">
+                <span class="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+                  <span>🎲</span> Shared Activities
+                </span>
+                <button @click="showActivities = false" class="text-xs text-[#A9A6CC] hover:text-white p-1 cursor-pointer">✕</button>
+              </div>
+
+              <div class="grid grid-cols-2 gap-2.5">
+                <button
+                  @click="activeActivity = 'doodle'; showActivities = false;"
+                  class="p-3 rounded-xl bg-[#24264A] hover:bg-[#8B7CFF]/20 border border-[#34376A] hover:border-[#8B7CFF] text-left transition group cursor-pointer"
+                >
+                  <span class="text-xl mb-1 block group-hover:scale-110 transition-transform">🎨</span>
+                  <div class="text-xs font-bold text-white">Doodle Board</div>
+                  <div class="text-[10px] text-[#A9A6CC]">Draw together live</div>
+                </button>
+
+                <button
+                  @click="activeActivity = 'trivia'; showActivities = false;"
+                  class="p-3 rounded-xl bg-[#24264A] hover:bg-gold/20 border border-[#34376A] hover:border-gold text-left transition group cursor-pointer"
+                >
+                  <span class="text-xl mb-1 block group-hover:scale-110 transition-transform">🎮</span>
+                  <div class="text-xs font-bold text-white">Trivia Duel</div>
+                  <div class="text-[10px] text-[#A9A6CC]">Friendly quiz duel</div>
+                </button>
+
+                <button
+                  @click="toggleBreathing(); showActivities = false;"
+                  class="p-3 rounded-xl bg-[#24264A] hover:bg-mint/20 border border-[#34376A] hover:border-mint text-left transition group cursor-pointer"
+                >
+                  <span class="text-xl mb-1 block group-hover:scale-110 transition-transform">🫁</span>
+                  <div class="text-xs font-bold text-white">Breathe Sync</div>
+                  <div class="text-[10px] text-[#A9A6CC]">30-sec calm reset</div>
+                </button>
+
+                <button
+                  @click="nextIcebreaker(); showActivities = false;"
+                  class="p-3 rounded-xl bg-[#24264A] hover:bg-coral/20 border border-[#34376A] hover:border-coral text-left transition group cursor-pointer"
+                >
+                  <span class="text-xl mb-1 block group-hover:scale-110 transition-transform">💡</span>
+                  <div class="text-xs font-bold text-white">Icebreaker</div>
+                  <div class="text-[10px] text-[#A9A6CC]">Conversation starter</div>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </section>

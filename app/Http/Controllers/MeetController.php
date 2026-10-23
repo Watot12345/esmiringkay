@@ -13,6 +13,7 @@ use App\Domain\Rooms\Events\MessageSent;
 use App\Domain\Rooms\Events\RoomEnded;
 use App\Domain\Rooms\Events\WebRtcSignal;
 use App\Domain\Rooms\Models\Room;
+use App\Domain\Rooms\Services\ActivityService;
 use App\Domain\Rooms\Services\TurnCredentialService;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
@@ -28,7 +29,8 @@ class MeetController extends Controller
         protected TurnCredentialService $turnService,
         protected SentinelService $sentinelService,
         protected ModerationQueueService $moderationService,
-        protected ConnectionService $connectionService
+        protected ConnectionService $connectionService,
+        protected ActivityService $activityService
     ) {}
 
     /**
@@ -290,6 +292,43 @@ class MeetController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Your appeal has been submitted for review within 72 hours.',
+        ]);
+    }
+
+    /**
+     * Get state of a shared activity (doodle, trivia, breathing, icebreaker)
+     */
+    public function getActivity(string $id, string $kind): JsonResponse
+    {
+        $activity = $this->activityService->getActivityState($id, $kind);
+
+        return response()->json([
+            'kind' => $activity->kind,
+            'state' => $activity->state,
+        ]);
+    }
+
+    /**
+     * Update shared activity (collaborative drawing, trivia answers)
+     */
+    public function updateActivity(Request $request, string $id): JsonResponse
+    {
+        $validated = $request->validate([
+            'kind' => 'required|string|in:doodle,trivia,breathing,icebreaker',
+            'action' => 'required|string',
+            'payload' => 'nullable|array',
+        ]);
+
+        $activity = $this->activityService->updateActivity(
+            roomId: $id,
+            kind: $validated['kind'],
+            action: $validated['action'],
+            payload: $validated['payload'] ?? []
+        );
+
+        return response()->json([
+            'success' => true,
+            'state' => $activity->state,
         ]);
     }
 }
