@@ -3,38 +3,36 @@ import { computed } from 'vue';
 
 interface Props {
   animated?: boolean;
-  size?: 'sm' | 'md' | 'lg' | 'hero';
+  size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
   showWordmark?: boolean;
-  speed?: number;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   animated: true,
   size: 'md',
-  showWordmark: true,
-  speed: 1,
+  showWordmark: false,
 });
 
 const sizeClasses = computed(() => {
   switch (props.size) {
+    case 'xs':
+      return 'w-10';
     case 'sm':
-      return 'w-24';
+      return 'w-16';
     case 'md':
-      return 'w-44';
+      return 'w-28';
     case 'lg':
+      return 'w-48';
+    case 'xl':
       return 'w-72';
-    case 'hero':
-      return 'w-full max-w-[480px]';
     default:
-      return 'w-44';
+      return 'w-28';
   }
 });
-
-const animDuration = computed(() => `${3.6 / props.speed}s`);
 </script>
 
 <template>
-  <div :class="['relative select-none flex flex-col items-center', sizeClasses]">
+  <div :class="['relative select-none flex flex-col items-center justify-center', sizeClasses]">
     <svg
       viewBox="0 0 500 360"
       class="w-full h-auto overflow-visible"
@@ -76,7 +74,7 @@ const animDuration = computed(() => `${3.6 / props.speed}s`);
       </defs>
 
       <!-- Ambient Twinkle Stars -->
-      <g v-if="animated" class="ambient-stars">
+      <g v-if="animated">
         <path
           class="star-twinkle-1"
           fill="#FFD36E"
@@ -91,21 +89,8 @@ const animDuration = computed(() => `${3.6 / props.speed}s`);
         />
       </g>
 
-      <!-- Little Heart floating up when bubbles kiss -->
-      <g v-if="animated" class="bubble-heart" :style="{ animationDuration: animDuration }">
-        <path
-          d="M 250 82 C 250 78, 245 72, 238 72 C 229 72, 226 80, 226 86 C 226 96, 238 106, 250 114 C 262 106, 274 96, 274 86 C 274 80, 271 72, 262 72 C 255 72, 250 78, 250 82 Z"
-          fill="#FF8A7A"
-          opacity="0.95"
-          filter="drop-shadow(0 0 8px rgba(255,138,122,0.8))"
-        />
-      </g>
-
       <!-- Bubble Left (Purple) -->
-      <g
-        :class="{ 'kiss-left': animated }"
-        :style="{ animationDuration: animDuration }"
-      >
+      <g :class="{ 'kiss-left': animated }">
         <path
           d="M 215 100 
              C 260 100, 290 135, 290 178 
@@ -126,10 +111,7 @@ const animDuration = computed(() => `${3.6 / props.speed}s`);
       </g>
 
       <!-- Bubble Right (Coral) -->
-      <g
-        :class="{ 'kiss-right': animated }"
-        :style="{ animationDuration: animDuration }"
-      >
+      <g :class="{ 'kiss-right': animated }">
         <path
           d="M 285 100 
              C 330 100, 366 135, 366 178 
@@ -150,10 +132,7 @@ const animDuration = computed(() => `${3.6 / props.speed}s`);
       </g>
 
       <!-- Intersection Lens (Mint) -->
-      <g
-        :class="{ 'kiss-lens': animated }"
-        :style="{ animationDuration: animDuration }"
-      >
+      <g :class="{ 'kiss-lens': animated }">
         <path
           d="M 250 106 
              C 272 124, 285 150, 285 178 
@@ -166,21 +145,17 @@ const animDuration = computed(() => `${3.6 / props.speed}s`);
       </g>
 
       <!-- Smile in Intersection -->
-      <g
-        :class="{ 'kiss-smile': animated }"
-        :style="{ animationDuration: animDuration }"
-      >
+      <g :class="{ 'kiss-smile': animated }">
         <path
           d="M 235 178 Q 250 196 265 178"
           fill="none"
-          stroke="currentColor"
-          class="text-bg dark:text-[#0F1020]"
+          stroke="#0F1020"
           stroke-width="7"
           stroke-linecap="round"
         />
       </g>
 
-      <!-- Wordmark -->
+      <!-- Wordmark (Optional) -->
       <g v-if="showWordmark" transform="translate(0, 320)">
         <text
           x="250"
@@ -190,7 +165,6 @@ const animDuration = computed(() => `${3.6 / props.speed}s`);
         >
           Emiringkay
         </text>
-        <!-- Dot spheres on 'i's -->
         <circle cx="203" cy="-38" r="6" fill="url(#orbPurple)" filter="drop-shadow(0 0 6px rgba(139,124,255,0.8))" />
         <circle cx="272" cy="-38" r="6" fill="url(#orbCoral)" filter="drop-shadow(0 0 6px rgba(255,138,122,0.8))" />
       </g>
@@ -199,73 +173,60 @@ const animDuration = computed(() => `${3.6 / props.speed}s`);
 </template>
 
 <style scoped>
-/* Motion bezier curve strictly from 07-theme.md */
 .kiss-left {
-  animation: kissLeftAnim 3.6s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+  animation: kissLeftAnim 3.2s cubic-bezier(0.22, 1, 0.36, 1) infinite;
   transform-origin: 215px 175px;
 }
 
 .kiss-right {
-  animation: kissRightAnim 3.6s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+  animation: kissRightAnim 3.2s cubic-bezier(0.22, 1, 0.36, 1) infinite;
   transform-origin: 285px 175px;
 }
 
 .kiss-lens {
-  animation: lensBloomAnim 3.6s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+  animation: lensBloomAnim 3.2s cubic-bezier(0.22, 1, 0.36, 1) infinite;
   transform-origin: 250px 175px;
 }
 
 .kiss-smile {
-  animation: smilePopAnim 3.6s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+  animation: smilePopAnim 3.2s cubic-bezier(0.22, 1, 0.36, 1) infinite;
   transform-origin: 250px 185px;
 }
 
-.bubble-heart {
-  animation: heartFloatAnim 3.6s cubic-bezier(0.22, 1, 0.36, 1) infinite;
-  transform-origin: 250px 85px;
-}
-
 @keyframes kissLeftAnim {
-  0%, 15% { transform: translate(-32px, 0); }
-  38% { transform: translate(0px, 0) scale(1.03, 0.97); }
-  45% { transform: translate(3px, 0) scale(0.96, 1.04) rotate(-2deg); }
-  55% { transform: translate(0px, 0); }
-  75%, 100% { transform: translate(-32px, 0); }
+  0%, 15% { transform: translate(-28px, 0); }
+  40% { transform: translate(0px, 0) scale(1.02, 0.98); }
+  46% { transform: translate(2px, 0) scale(0.97, 1.03) rotate(-1.5deg); }
+  56% { transform: translate(0px, 0); }
+  75%, 100% { transform: translate(-28px, 0); }
 }
 
 @keyframes kissRightAnim {
-  0%, 15% { transform: translate(32px, 0); }
-  38% { transform: translate(0px, 0) scale(1.03, 0.97); }
-  45% { transform: translate(-3px, 0) scale(0.96, 1.04) rotate(2deg); }
-  55% { transform: translate(0px, 0); }
-  75%, 100% { transform: translate(32px, 0); }
+  0%, 15% { transform: translate(28px, 0); }
+  40% { transform: translate(0px, 0) scale(1.02, 0.98); }
+  46% { transform: translate(-2px, 0) scale(0.97, 1.03) rotate(1.5deg); }
+  56% { transform: translate(0px, 0); }
+  75%, 100% { transform: translate(28px, 0); }
 }
 
 @keyframes lensBloomAnim {
-  0%, 15% { opacity: 0.15; transform: scale(0.7); }
-  38% { opacity: 0.9; transform: scale(1.02); }
-  45% {
+  0%, 15% { opacity: 0.2; transform: scale(0.75); }
+  40% { opacity: 0.9; transform: scale(1.02); }
+  46% {
     opacity: 1;
-    transform: scale(1.06);
-    filter: drop-shadow(0 0 16px rgba(94, 234, 212, 0.8));
+    transform: scale(1.05);
+    filter: drop-shadow(0 0 14px rgba(94, 234, 212, 0.8));
   }
-  55% { opacity: 0.95; transform: scale(1); }
-  75%, 100% { opacity: 0.15; transform: scale(0.7); }
+  56% { opacity: 0.95; transform: scale(1); }
+  75%, 100% { opacity: 0.2; transform: scale(0.75); }
 }
 
 @keyframes smilePopAnim {
-  0%, 15% { opacity: 0; transform: scale(0.5); }
-  35% { opacity: 0.7; transform: scale(0.9); }
-  45% { opacity: 1; transform: scale(1.12); }
-  55% { opacity: 1; transform: scale(1); }
-  75%, 100% { opacity: 0; transform: scale(0.5); }
-}
-
-@keyframes heartFloatAnim {
-  0%, 35% { opacity: 0; transform: translateY(10px) scale(0.4); }
-  45% { opacity: 1; transform: translateY(-16px) scale(1.1); }
-  65% { opacity: 0.7; transform: translateY(-38px) scale(1.2); }
-  80%, 100% { opacity: 0; transform: translateY(-50px) scale(0.9); }
+  0%, 15% { opacity: 0; transform: scale(0.6); }
+  40% { opacity: 0.8; transform: scale(0.95); }
+  46% { opacity: 1; transform: scale(1.1); }
+  56% { opacity: 1; transform: scale(1); }
+  75%, 100% { opacity: 0; transform: scale(0.6); }
 }
 
 @keyframes twinkleAnim {
@@ -277,7 +238,7 @@ const animDuration = computed(() => `${3.6 / props.speed}s`);
 .star-twinkle-3 { animation: twinkleAnim 3.6s ease-in-out 1.2s infinite; }
 
 @media (prefers-reduced-motion: reduce) {
-  .kiss-left, .kiss-right, .kiss-lens, .kiss-smile, .bubble-heart, .star-twinkle-1, .star-twinkle-2, .star-twinkle-3 {
+  .kiss-left, .kiss-right, .kiss-lens, .kiss-smile, .star-twinkle-1, .star-twinkle-2, .star-twinkle-3 {
     animation: none !important;
   }
 }
