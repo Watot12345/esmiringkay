@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
-import { router } from '@inertiajs/vue3';
+import { Link, router } from '@inertiajs/vue3';
 import BrandLogo from '../Components/BrandLogo.vue';
 import LoadingScreen from '../Components/LoadingScreen.vue';
 
@@ -154,9 +154,16 @@ async function handleStart() {
       </div>
 
       <div class="flex items-center gap-2">
-        <div class="bg-[#1A1B33]/80 backdrop-blur-xl px-3.5 py-1.5 rounded-full border border-[#34376A]/60 text-xs text-[#A9A6CC] flex items-center gap-1.5">
+        <Link
+          href="/circle"
+          class="bg-[#1A1B33]/80 hover:bg-[#24264A] backdrop-blur-xl px-3.5 py-1.5 rounded-full border border-[#34376A]/60 text-xs text-[#A9A6CC] hover:text-white flex items-center gap-1.5 transition shadow-sm"
+        >
+          <span>⭕</span>
+          <span class="font-semibold">Circle</span>
+        </Link>
+        <div class="hidden sm:flex bg-[#1A1B33]/80 backdrop-blur-xl px-3.5 py-1.5 rounded-full border border-[#34376A]/60 text-xs text-[#A9A6CC] items-center gap-1.5">
           <span>🏮</span>
-          <span class="hidden sm:inline">Soft Night Plaza</span>
+          <span>Plaza</span>
         </div>
       </div>
     </header>

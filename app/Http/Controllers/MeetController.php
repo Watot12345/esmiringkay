@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Domain\Connections\Services\ConnectionService;
 use App\Domain\Matching\Services\MatchingEngine;
 use App\Domain\Moderation\Models\Report;
 use App\Domain\Moderation\Models\Sanction;
@@ -13,6 +14,7 @@ use App\Domain\Rooms\Events\RoomEnded;
 use App\Domain\Rooms\Events\WebRtcSignal;
 use App\Domain\Rooms\Models\Room;
 use App\Domain\Rooms\Services\TurnCredentialService;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -25,7 +27,8 @@ class MeetController extends Controller
         protected MatchingEngine $matchingEngine,
         protected TurnCredentialService $turnService,
         protected SentinelService $sentinelService,
-        protected ModerationQueueService $moderationService
+        protected ModerationQueueService $moderationService,
+        protected ConnectionService $connectionService
     ) {}
 
     /**
@@ -229,22 +232,45 @@ class MeetController extends Controller
     }
 
     /**
-     * Submit Keep request
+     * Submit Keep request (Mutual matching per 01-context.md Section 5)
      */
     public function keep(Request $request, string $id): JsonResponse
     {
         $validated = $request->validate([
             'type' => 'required|string|in:friend,rival,spark,confidant',
+            'target_user_id' => 'nullable|exists:users,id',
         ]);
 
         $room = Room::findOrFail($id);
-        $senderId = (string) ($request->user()?->id ?? 'guest_'.substr(session()->getId(), 0, 8));
+        $user = $request->user() ?? User::firstOrCreate(
+            ['email' => 'guest@emiringkay.test'],
+            ['name' => 'You', 'password' => bcrypt('secret'), 'birthdate_confirmed' => true]
+        );
 
-        broadcast(new KeepRequested($room->id, $senderId, $validated['type']))->toOthers();
+        $targetUser = isset($validated['target_user_id'])
+            ? User::find($validated['target_user_id'])
+            : User::firstOrCreate(
+                ['email' => 'stranger_peer@emiringkay.test'],
+                ['name' => 'Stranger', 'password' => bcrypt('secret'), 'birthdate_confirmed' => true]
+            );
+
+        $targetUserId = $targetUser->id;
+
+        // Process Keep through ConnectionService
+        $result = $this->connectionService->requestKeep(
+            user: $user,
+            targetUserId: $targetUserId,
+            type: $validated['type'],
+            roomId: $room->id
+        );
+
+        broadcast(new KeepRequested($room->id, (string) $user->id, $validated['type']))->toOthers();
 
         return response()->json([
             'success' => true,
             'type' => $validated['type'],
+            'is_mutual' => $result['is_mutual'],
+            'connection_id' => $result['connection']->id,
         ]);
     }
 
