@@ -4,6 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Domain\Matching\Services\MatchingEngine;
 use App\Domain\Moderation\Models\Report;
+use App\Domain\Moderation\Models\Sanction;
+use App\Domain\Moderation\Services\ModerationQueueService;
+use App\Domain\Moderation\Services\SentinelService;
 use App\Domain\Rooms\Events\KeepRequested;
 use App\Domain\Rooms\Events\MessageSent;
 use App\Domain\Rooms\Events\RoomEnded;
@@ -20,7 +23,9 @@ class MeetController extends Controller
 {
     public function __construct(
         protected MatchingEngine $matchingEngine,
-        protected TurnCredentialService $turnService
+        protected TurnCredentialService $turnService,
+        protected SentinelService $sentinelService,
+        protected ModerationQueueService $moderationService
     ) {}
 
     /**
@@ -49,7 +54,6 @@ class MeetController extends Controller
         $ticketId = $validated['ticket_id'] ?? (string) Str::uuid();
         $userId = $validated['user_id'] ?? (string) ($request->user()?->id ?? session()->getId());
 
-        // Attempt instant pair with waiting candidate
         $room = $this->matchingEngine->attemptMatch(
             ticketId: $ticketId,
             userId: $userId,
@@ -66,7 +70,6 @@ class MeetController extends Controller
             ]);
         }
 
-        // Otherwise enqueue
         $this->matchingEngine->enqueue(
             ticketId: $ticketId,
             userId: $userId,
@@ -74,7 +77,6 @@ class MeetController extends Controller
             mode: $validated['mode']
         );
 
-        // Immediate room creation for test/demo
         $instantRoom = Room::create([
             'type' => $validated['mode'],
             'vibe' => $validated['vibe'],
@@ -111,8 +113,7 @@ class MeetController extends Controller
     }
 
     /**
-     * WebRTC signaling relay (SDP Offer, SDP Answer, ICE candidates)
-     * Relayed directly via Reverb websocket event, never persisted per 01-context.md
+     * WebRTC signaling relay (Offer, Answer, ICE candidates)
      */
     public function signal(Request $request, string $id): JsonResponse
     {
@@ -135,7 +136,7 @@ class MeetController extends Controller
     }
 
     /**
-     * Send message in live room
+     * Send message in live room (Protected by Sentinel automated safety engine)
      */
     public function sendMessage(Request $request, string $id): JsonResponse
     {
@@ -144,7 +145,30 @@ class MeetController extends Controller
         ]);
 
         $room = Room::findOrFail($id);
-        $senderId = (string) ($request->user()?->id ?? 'guest_'.substr(session()->getId(), 0, 8));
+        $sender = $request->user();
+
+        // 1. Sentinel automated safety check (09-agents.md)
+        $safety = $this->sentinelService->inspectText($validated['body'], $room->id, $sender);
+
+        if ($safety['flagged']) {
+            if ($safety['is_crisis']) {
+                return response()->json([
+                    'success' => false,
+                    'flagged' => true,
+                    'crisis' => true,
+                    'message' => 'You are not alone. Please consider reaching out to the National Center for Mental Health (PH: 1553 / 0917-899-8727) or your local crisis line.',
+                ], 422);
+            }
+
+            return response()->json([
+                'success' => false,
+                'flagged' => true,
+                'reason' => $safety['reason'],
+            ], 403);
+        }
+
+        // 2. Broadcast safe message
+        $senderId = (string) ($sender?->id ?? 'guest_'.substr(session()->getId(), 0, 8));
         $timestamp = now()->toTimeString();
 
         broadcast(new MessageSent($room->id, $senderId, $validated['body'], $timestamp))->toOthers();
@@ -221,6 +245,25 @@ class MeetController extends Controller
         return response()->json([
             'success' => true,
             'type' => $validated['type'],
+        ]);
+    }
+
+    /**
+     * Submit an appeal against an active sanction
+     */
+    public function appeal(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'sanction_id' => 'required|exists:sanctions,id',
+            'explanation' => 'required|string|min:10|max:1000',
+        ]);
+
+        $sanction = Sanction::findOrFail($validated['sanction_id']);
+        $this->moderationService->submitAppeal($sanction, $validated['explanation']);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Your appeal has been submitted for review within 72 hours.',
         ]);
     }
 }
