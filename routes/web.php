@@ -7,3 +7,9 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', [MeetController::class, 'index'])->name('home');
 Route::post('/match', [MeetController::class, 'match'])->name('match');
 Route::get('/room/{id}', [MeetController::class, 'room'])->name('room.show');
+
+// 2. Realtime Room actions
+Route::post('/room/{id}/message', [MeetController::class, 'sendMessage'])->name('room.message');
+Route::post('/room/{id}/skip', [MeetController::class, 'skip'])->name('room.skip');
+Route::post('/room/{id}/report', [MeetController::class, 'report'])->name('room.report');
+Route::post('/room/{id}/keep', [MeetController::class, 'keep'])->name('room.keep');
