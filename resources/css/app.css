@@ -1,0 +1,40 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Dark (default) Soft Night Plaza from 07-theme.md */
+  --bg: #0F1020;
+  --surface: #1A1B33;
+  --surface-2: #24264A;
+  --text: #F4F2FF;
+  --text-muted: #A9A6CC;
+  --primary: #8B7CFF;
+  --accent-coral: #FF8A7A;
+  --accent-mint: #5EEAD4;
+  --accent-gold: #FFD36E;
+  --danger: #FF5C7A;
+  --border: #34376A;
+}
+
+.light {
+  /* Light mode tokens from 07-theme.md */
+  --bg: #FAF8FF;
+  --surface: #FFFFFF;
+  --surface-2: #F0ECFA;
+  --text: #1B1B2F;
+  --text-muted: #6B6890;
+  --primary: #6C5CE7;
+  --accent-coral: #F2685A;
+  --accent-mint: #14B8A6;
+  --accent-gold: #E8A317;
+  --danger: #E11D48;
+  --border: #E2DCF3;
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: 'Inter', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
