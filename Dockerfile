@@ -76,8 +76,10 @@ RUN mkdir -p /var/log/nginx /var/log/supervisor /var/run/nginx \
     storage/framework/cache \
     storage/logs \
     bootstrap/cache \
-    && chown -R www-data:www-data storage bootstrap/cache \
-    && chmod -R 775 storage bootstrap/cache
+    database \
+    && touch database/database.sqlite \
+    && chown -R www-data:www-data storage bootstrap/cache database \
+    && chmod -R 775 storage bootstrap/cache database
 
 # Render uses dynamic $PORT (defaults to 10000)
 EXPOSE 10000

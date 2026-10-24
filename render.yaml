@@ -15,7 +15,7 @@ services:
       - key: APP_DEBUG
         value: "false"
       - key: APP_KEY
-        generateValue: true
+        value: "base64:lIaIQLTRzpkDFv/Rv7a2UY7yKMjReXWj2KaOSd4aeao="
       - key: DB_CONNECTION
         value: sqlite
       - key: BROADCAST_CONNECTION
