@@ -3,6 +3,7 @@
 use App\Domain\Connections\Models\Connection;
 use App\Domain\Rooms\Events\KeepRequested;
 use App\Domain\Rooms\Events\MessageSent;
+use App\Domain\Rooms\Events\WebRtcSignal;
 use App\Domain\Rooms\Models\Activity;
 use App\Domain\Rooms\Models\Room;
 use App\Models\User;
@@ -146,4 +147,83 @@ test('complete simulation: two real users meet, chat, share doodle, and become c
             ->has('connections', 1)
             ->where('connections.0.partner.name', 'Bob Starlight')
         );
+});
+
+test('webrtc video signaling: 2 devices (one with camera, one without) handshake cleanly without collision', function () {
+    Event::fake([WebRtcSignal::class]);
+
+    // 1. Create two users: Device 1 (PC with no camera) and Device 2 (Phone with camera)
+    $pcUser = User::factory()->create(['name' => 'PC User']);
+    $phoneUser = User::factory()->create(['name' => 'Phone User']);
+
+    $room = Room::create([
+        'type' => 'video',
+        'vibe' => 'Spark',
+        'started_at' => now(),
+    ]);
+
+    // 2. PC User enters first -> assigned isInitiator = true
+    $pcRoom = $this->actingAs($pcUser)->get("/room/{$room->id}");
+    $pcRoom->assertStatus(200)
+        ->assertInertia(fn ($page) => $page
+            ->component('Room/Show')
+            ->where('isInitiator', true)
+            ->where('currentUserId', (string) $pcUser->id)
+        );
+
+    // 3. Phone User enters second -> assigned isInitiator = false
+    $phoneRoom = $this->actingAs($phoneUser)->get("/room/{$room->id}");
+    $phoneRoom->assertStatus(200)
+        ->assertInertia(fn ($page) => $page
+            ->component('Room/Show')
+            ->where('isInitiator', false)
+            ->where('currentUserId', (string) $phoneUser->id)
+        );
+
+    // 4. PC User (Initiator) sends SDP Offer
+    $offerPayload = ['type' => 'offer', 'sdp' => 'v=0\r\no=- 12345 2 IN IP4 127.0.0.1...'];
+    $offerRes = $this->actingAs($pcUser)->postJson("/room/{$room->id}/signal", [
+        'signalType' => 'offer',
+        'payload' => $offerPayload,
+        'sender_id' => (string) $pcUser->id,
+    ]);
+    $offerRes->assertStatus(200)->assertJson(['success' => true]);
+
+    Event::assertDispatched(WebRtcSignal::class, function ($e) use ($room, $pcUser, $offerPayload) {
+        return $e->roomId === $room->id
+            && $e->senderId === (string) $pcUser->id
+            && $e->signalType === 'offer'
+            && $e->payload === $offerPayload;
+    });
+
+    // 5. Phone User (Responder) sends SDP Answer
+    $answerPayload = ['type' => 'answer', 'sdp' => 'v=0\r\no=- 67890 2 IN IP4 127.0.0.1...'];
+    $answerRes = $this->actingAs($phoneUser)->postJson("/room/{$room->id}/signal", [
+        'signalType' => 'answer',
+        'payload' => $answerPayload,
+        'sender_id' => (string) $phoneUser->id,
+    ]);
+    $answerRes->assertStatus(200)->assertJson(['success' => true]);
+
+    Event::assertDispatched(WebRtcSignal::class, function ($e) use ($room, $phoneUser, $answerPayload) {
+        return $e->roomId === $room->id
+            && $e->senderId === (string) $phoneUser->id
+            && $e->signalType === 'answer'
+            && $e->payload === $answerPayload;
+    });
+
+    // 6. ICE candidate exchange
+    $candidatePayload = ['candidate' => 'candidate:1 1 UDP 2122260223 192.168.1.100 50000 typ host', 'sdpMid' => '0'];
+    $candidateRes = $this->actingAs($phoneUser)->postJson("/room/{$room->id}/signal", [
+        'signalType' => 'candidate',
+        'payload' => $candidatePayload,
+        'sender_id' => (string) $phoneUser->id,
+    ]);
+    $candidateRes->assertStatus(200)->assertJson(['success' => true]);
+
+    Event::assertDispatched(WebRtcSignal::class, function ($e) use ($room, $phoneUser) {
+        return $e->roomId === $room->id
+            && $e->senderId === (string) $phoneUser->id
+            && $e->signalType === 'candidate';
+    });
 });

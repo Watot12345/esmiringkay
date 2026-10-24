@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { router } from '@inertiajs/vue3';
 import BrandLogo from '../../Components/BrandLogo.vue';
 import { useWebRTC } from '../../Composables/useWebRTC';
@@ -14,13 +14,26 @@ interface Props {
     started_at: string;
   };
   currentUserId?: string;
+  isInitiator?: boolean;
   iceServers?: any[];
 }
 
 const props = withDefaults(defineProps<Props>(), {
   currentUserId: 'guest_user',
+  isInitiator: false,
   iceServers: () => [],
 });
+
+function getClientId(): string {
+  if (typeof window === 'undefined') return props.currentUserId || 'guest_user';
+  let id = sessionStorage.getItem('emiringkay_client_id');
+  if (!id) {
+    id = props.currentUserId || 'user_' + Math.random().toString(36).substring(2, 9);
+    sessionStorage.setItem('emiringkay_client_id', id);
+  }
+  return id;
+}
+const myUserId = getClientId();
 
 // Timer
 const seconds = ref(0);
@@ -47,65 +60,103 @@ const {
 const localVideoRef = ref<HTMLVideoElement | null>(null);
 const remoteVideoRef = ref<HTMLVideoElement | null>(null);
 
+const hasRemoteVideo = computed(() => {
+  return !!(remoteStream.value && remoteStream.value.getVideoTracks().length > 0);
+});
+
 // Consent blur for video/camera (starts blurred per 08-workflow.md Section 2)
 const strangerUnblurred = ref(props.room.type === 'text');
+const strangerKeepType = ref<string | null>(null);
 let roomChannel: any = null;
+
+async function sendSignal(signalType: string, payload: any) {
+  try {
+    await fetch(`/room/${props.room.id}/signal`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify({
+        signalType,
+        payload,
+        sender_id: myUserId,
+      }),
+    });
+  } catch (e) {
+    console.warn('Signal send error:', e);
+  }
+}
+
+function setupEcho() {
+  const echoInstance = typeof window !== 'undefined' ? (window as any).Echo : null;
+  if (!echoInstance) {
+    console.warn('Echo not ready yet. Retrying in 400ms...');
+    setTimeout(setupEcho, 400);
+    return;
+  }
+
+  roomChannel = echoInstance.channel(`room.${props.room.id}`);
+
+  const handleIncomingMessage = (data: any) => {
+    if (data.senderId !== myUserId && data.senderId !== props.currentUserId) {
+      messages.value.push({
+        sender: 'stranger',
+        text: data.body,
+        time: 'Now',
+      });
+    }
+  };
+
+  roomChannel.listen('.message.sent', handleIncomingMessage);
+  roomChannel.listen('message.sent', handleIncomingMessage);
+  roomChannel.listen('MessageSent', handleIncomingMessage);
+
+  const handleIncomingSignal = (data: any) => {
+    if (data.senderId !== myUserId && data.senderId !== props.currentUserId) {
+      handleSignal(data.signalType, data.payload, async (answer) => {
+        await sendSignal('answer', answer);
+      });
+    }
+  };
+
+  roomChannel.listen('.webrtc.signal', handleIncomingSignal);
+  roomChannel.listen('webrtc.signal', handleIncomingSignal);
+  roomChannel.listen('WebRtcSignal', handleIncomingSignal);
+
+  const handleRoomEnded = () => {
+    showPostCall.value = true;
+  };
+  roomChannel.listen('.room.ended', handleRoomEnded);
+  roomChannel.listen('room.ended', handleRoomEnded);
+  roomChannel.listen('RoomEnded', handleRoomEnded);
+
+  roomChannel.listen('.keep.requested', (data: any) => {
+    if (data.senderId !== myUserId && data.senderId !== props.currentUserId) {
+      strangerKeepType.value = data.keepType;
+    }
+  });
+}
 
 onMounted(async () => {
   timerInterval = setInterval(() => {
     seconds.value++;
   }, 1000);
 
-  // Connect to real Reverb WebSocket channel for live room peers
-  if (typeof window !== 'undefined' && (window as any).Echo) {
-    roomChannel = (window as any).Echo.channel(`room.${props.room.id}`)
-      .listen('.message.sent', (data: any) => {
-        if (data.senderId !== props.currentUserId) {
-          messages.value.push({
-            sender: 'stranger',
-            text: data.body,
-            time: 'Now',
-          });
-        }
-      })
-      .listen('.webrtc.signal', (data: any) => {
-        if (data.senderId !== props.currentUserId) {
-          handleSignal(data.signalType, data.payload);
-        }
-      })
-      .listen('.room.ended', () => {
-        showPostCall.value = true;
-      })
-      .listen('.keep.requested', (data: any) => {
-        if (data.senderId !== props.currentUserId) {
-          strangerKeepType.value = data.keepType;
-        }
-      });
-  }
+  // Connect to Reverb Echo channel
+  setupEcho();
 
   // If room is video or mask mode, request media
   if (props.room.type !== 'text') {
     const isMask = props.room.type === 'mask';
     const stream = await startMedia(true, true, isMask);
-    if (stream && localVideoRef.value) {
+    if (stream && localVideoRef.value && stream.getVideoTracks().length > 0) {
       localVideoRef.value.srcObject = stream;
     }
 
-    // Initialize peer connection
-    initPeerConnection(props.room.id, props.iceServers, true, async (signalType, payload) => {
-      // Send signal via POST /room/{id}/signal
-      try {
-        await fetch(`/room/${props.room.id}/signal`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '',
-          },
-          body: JSON.stringify({ signalType, payload }),
-        });
-      } catch (e) {
-        console.warn('Signal send error:', e);
-      }
+    // Initialize peer connection with deterministic initiator
+    initPeerConnection(props.room.id, props.iceServers, props.isInitiator, async (signalType, payload) => {
+      await sendSignal(signalType, payload);
     });
   }
 });
@@ -113,8 +164,9 @@ onMounted(async () => {
 watch(remoteStream, (newStream) => {
   if (newStream && remoteVideoRef.value) {
     remoteVideoRef.value.srcObject = newStream;
+    remoteVideoRef.value.play().catch(() => {});
   }
-});
+}, { immediate: true });
 
 onUnmounted(() => {
   if (timerInterval) clearInterval(timerInterval);
@@ -155,9 +207,12 @@ async function sendMessage() {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-CSRF-TOKEN': (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '',
+        'Accept': 'application/json',
       },
-      body: JSON.stringify({ body: text }),
+      body: JSON.stringify({
+        body: text,
+        sender_id: myUserId,
+      }),
     });
   } catch (e) {
     console.error(e);
@@ -334,35 +389,37 @@ function handleNextMatch() {
         <div class="w-full h-full flex flex-col items-center justify-center relative p-4">
           <!-- Stranger Video Tile -->
           <div
-            :class="[
-              'w-full h-full max-w-lg max-h-[360px] rounded-card border border-border flex flex-col items-center justify-center relative bg-surface overflow-hidden transition-all',
-              !strangerUnblurred && room.type !== 'text' ? 'backdrop-blur-2xl' : ''
-            ]"
+            class="w-full h-full max-w-lg max-h-[360px] rounded-card border border-border flex flex-col items-center justify-center relative bg-surface overflow-hidden transition-all"
           >
             <!-- WebRTC Remote Video Feed -->
             <video
-              v-show="remoteStream && strangerUnblurred"
+              v-show="remoteStream && hasRemoteVideo"
               ref="remoteVideoRef"
               autoplay
               playsinline
-              class="w-full h-full object-cover rounded-card"
+              :class="[
+                'w-full h-full object-cover rounded-card transition-all duration-500',
+                !strangerUnblurred && room.type !== 'text' ? 'blur-2xl scale-105' : 'blur-0'
+              ]"
             ></video>
 
-            <!-- Fallback Avatar when video not active -->
-            <div v-show="!remoteStream || !strangerUnblurred" class="flex flex-col items-center gap-3">
+            <!-- Fallback Avatar when remote video is not transmitting -->
+            <div v-show="!remoteStream || !hasRemoteVideo" class="flex flex-col items-center gap-2.5">
               <div class="w-20 h-20 rounded-full bg-gradient-to-tr from-primary to-coral flex items-center justify-center text-3xl shadow-glow">
                 {{ isMaskMode ? '🎭' : '✨' }}
               </div>
               <span class="text-xs text-text-muted font-medium">Stranger (18+ Verified)</span>
+              <span v-if="isConnected" class="text-[11px] text-mint font-semibold">● Peer Connected</span>
+              <span v-else-if="isConnecting" class="text-[11px] text-gold font-semibold animate-pulse">Connecting...</span>
             </div>
 
             <!-- Mutual Consent Blur Overlay per 08-workflow.md Section 2 -->
             <div
-              v-if="!strangerUnblurred && room.type !== 'text'"
-              class="absolute inset-0 bg-surface/75 backdrop-blur-xl flex flex-col items-center justify-center p-4 text-center z-10"
+              v-if="!strangerUnblurred && room.type !== 'text' && remoteStream && hasRemoteVideo"
+              class="absolute inset-0 bg-surface/50 backdrop-blur-sm flex flex-col items-center justify-center p-4 text-center z-10"
             >
               <span class="text-xl mb-1">🔒</span>
-              <p class="text-xs text-text-muted mb-3">Both sides start blurred for privacy and comfort</p>
+              <p class="text-xs text-white font-medium drop-shadow mb-3">Camera detected! Starts blurred for comfort</p>
               <button
                 @click="strangerUnblurred = true"
                 class="px-4 py-2 rounded-pill bg-mint text-[#0F1020] text-xs font-semibold shadow-glow hover:opacity-90 active:scale-95 transition"
@@ -385,9 +442,9 @@ function handleNextMatch() {
               muted
               class="w-full h-full object-cover"
             ></video>
-            <div v-show="!localStream || !isCamActive" class="flex flex-col items-center">
-              <span>You</span>
-              <span class="text-[10px] text-coral">Camera Off</span>
+            <div v-show="!localStream || !isCamActive" class="flex flex-col items-center p-1 text-center">
+              <span class="font-semibold text-[11px] text-white">You</span>
+              <span class="text-[9px] text-[#A9A6CC]">No Camera</span>
             </div>
           </div>
 

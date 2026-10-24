@@ -18,6 +18,7 @@ use App\Domain\Rooms\Services\TurnCredentialService;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -141,6 +142,11 @@ class MeetController extends Controller
         $room = Room::findOrFail($id);
         $userId = (string) ($request->user()?->id ?? 'guest_'.substr(session()->getId(), 0, 8));
 
+        // Deterministic initiator: the first participant recorded in cache becomes the offer initiator
+        $initiatorKey = "room_initiator:{$room->id}";
+        $initiatorId = Cache::remember($initiatorKey, 600, fn () => $userId);
+        $isInitiator = ($initiatorId === $userId);
+
         return Inertia::render('Room/Show', [
             'room' => [
                 'id' => $room->id,
@@ -149,6 +155,7 @@ class MeetController extends Controller
                 'started_at' => $room->started_at,
             ],
             'currentUserId' => $userId,
+            'isInitiator' => $isInitiator,
             'iceServers' => $this->turnService->generateIceServers($userId),
         ]);
     }
@@ -161,17 +168,18 @@ class MeetController extends Controller
         $validated = $request->validate([
             'signalType' => 'required|string|in:offer,answer,candidate',
             'payload' => 'required|array',
+            'sender_id' => 'nullable|string',
         ]);
 
         $room = Room::findOrFail($id);
-        $senderId = (string) ($request->user()?->id ?? 'guest_'.substr(session()->getId(), 0, 8));
+        $senderId = (string) ($validated['sender_id'] ?? $request->user()?->id ?? 'guest_'.substr(session()->getId(), 0, 8));
 
         broadcast(new WebRtcSignal(
             roomId: $room->id,
             senderId: $senderId,
             signalType: $validated['signalType'],
             payload: $validated['payload']
-        ))->toOthers();
+        ));
 
         return response()->json(['success' => true]);
     }
@@ -183,6 +191,7 @@ class MeetController extends Controller
     {
         $validated = $request->validate([
             'body' => 'required|string|max:1000',
+            'sender_id' => 'nullable|string',
         ]);
 
         $room = Room::findOrFail($id);
@@ -209,15 +218,16 @@ class MeetController extends Controller
         }
 
         // 2. Broadcast safe message
-        $senderId = (string) ($sender?->id ?? 'guest_'.substr(session()->getId(), 0, 8));
+        $senderId = (string) ($validated['sender_id'] ?? $sender?->id ?? 'guest_'.substr(session()->getId(), 0, 8));
         $timestamp = now()->toTimeString();
 
-        broadcast(new MessageSent($room->id, $senderId, $validated['body'], $timestamp))->toOthers();
+        broadcast(new MessageSent($room->id, $senderId, $validated['body'], $timestamp));
 
         return response()->json([
             'success' => true,
             'body' => $validated['body'],
             'timestamp' => $timestamp,
+            'sender_id' => $senderId,
         ]);
     }
 
