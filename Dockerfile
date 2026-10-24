@@ -52,7 +52,8 @@ COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 RUN mv "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini" && \
     sed -i 's/memory_limit = 128M/memory_limit = 256M/' "$PHP_INI_DIR/php.ini" && \
     sed -i 's/upload_max_filesize = 2M/upload_max_filesize = 25M/' "$PHP_INI_DIR/php.ini" && \
-    sed -i 's/post_max_size = 8M/post_max_size = 25M/' "$PHP_INI_DIR/php.ini"
+    sed -i 's/post_max_size = 8M/post_max_size = 25M/' "$PHP_INI_DIR/php.ini" && \
+    echo "clear_env = no" >> /usr/local/etc/php-fpm.d/zz-docker.conf
 
 # Copy project files
 COPY . .
