@@ -2,7 +2,7 @@ services:
   - type: web
     name: emiringkay-web
     env: docker
-    plan: starter
+    plan: free
     region: singapore
     dockerfilePath: ./Dockerfile
     healthCheckPath: /up
@@ -17,11 +17,7 @@ services:
       - key: APP_KEY
         generateValue: true
       - key: DB_CONNECTION
-        value: pgsql
-      - key: DATABASE_URL
-        fromDatabase:
-          name: emiringkay-postgres
-          property: connectionString
+        value: sqlite
       - key: BROADCAST_CONNECTION
         value: reverb
       - key: QUEUE_CONNECTION
@@ -46,10 +42,3 @@ services:
         value: "8080"
       - key: REVERB_SCHEME
         value: "http"
-
-databases:
-  - name: emiringkay-postgres
-    databaseName: emiringkay
-    user: emiringkay_user
-    plan: starter
-    region: singapore

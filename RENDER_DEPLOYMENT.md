@@ -1,109 +1,58 @@
-# Deploying Emiringkay to Render (render.com)
+# Deploying Emiringkay to Render (100% Free - $0)
 
-This guide walks you through deploying **Emiringkay** to [Render](https://render.com) using the included Docker configuration, automated WebSockets (Reverb), and PostgreSQL.
+You do **NOT** need to pay to deploy Emiringkay to Render. 
 
----
-
-## Architecture Overview on Render
-
-- **Web Service (`emiringkay-web`)**:
-  - Runs **PHP 8.4** + **Nginx** inside a lightweight Docker container.
-  - Hosts both the HTTP application and the **Laravel Reverb WebSocket server** (proxied internally through Nginx on port 8080).
-  - Automatically runs database migrations and production caching (`config:cache`, `route:cache`, `view:cache`) upon deployment.
-  - Background Queue Worker and Scheduler (hourly ephemeral data purge) run under **Supervisord** within the same container, saving extra service costs.
-- **Managed Database (`emiringkay-postgres`)**:
-  - Render-managed PostgreSQL database with automatic backups.
+The previous configuration had `plan: starter` (Render's $7/mo tier). We have updated it to **`plan: free`** with embedded **SQLite**, so you can publish your app **completely free ($0/month)** with zero credit card charges.
 
 ---
 
-## Method 1: Instant 1-Click Blueprint Deploy (Recommended)
-
-Render provides Blueprints that automatically read [`render.yaml`](./render.yaml) and configure the web service, database, and environment variables for you:
-
-1. **Push your code to GitHub or GitLab**:
-   Ensure all changes are committed and pushed to your repository branch (`main`).
-
-2. **Go to Render**:
-   - Open your [Render Dashboard](https://dashboard.render.com).
-   - Click **New +** in the top right, then select **Blueprint**.
-
-3. **Connect Repository**:
-   - Select your GitHub/GitLab repository containing Emiringkay.
-   - Render will detect the `render.yaml` file.
-
-4. **Review & Launch**:
-   - Choose your preferred region (e.g. **Singapore** for lowest latency in PH/SEA).
-   - Click **Apply**.
-   - Render will provision the PostgreSQL database, build the multi-stage Docker container, compile the frontend assets, run migrations, and launch your live application with free automatic SSL (`https://your-app.onrender.com`).
+## Why Render Asked for Payment Before
+1. **Paid Plan in Blueprint**: The initial template had `plan: starter` ($7/mo) and a managed PostgreSQL database ($7/mo).
+2. **Now Updated to 100% Free**: We changed `render.yaml` to **`plan: free`** and switched the database to lightweight **SQLite** stored inside the container. This eliminates the need for a separate paid database!
 
 ---
 
-## Method 2: Manual Web Service Setup
+## 100% Free Deployment Options
 
-If you prefer to configure services manually in the Render dashboard:
+### Option A: Manual Web Service (Easiest & Guaranteed Free - No Blueprint)
 
-### Step 1: Create PostgreSQL Database
-1. In Render Dashboard, click **New +** -> **PostgreSQL**.
-2. Name: `emiringkay-postgres`
-3. Database: `emiringkay`
-4. User: `emiringkay_user`
-5. Region: **Singapore** (or closest to you)
-6. Plan: **Free** or **Starter**
-7. Click **Create Database**.
-8. Once created, copy the **Internal Database URL**.
+If Render asks for a credit card during Blueprint import, use this manual method which is guaranteed **Free ($0)** and never asks for payment:
 
-### Step 2: Create Web Service
-1. Click **New +** -> **Web Service**.
-2. Connect your Git repository.
-3. Configure the service:
+1. Go to your [Render Dashboard](https://dashboard.render.com).
+2. Click **New +** in the top right -> **Web Service**.
+3. Connect your GitHub/GitLab repository (`esmiringkay`).
+4. Fill in the basic settings:
    - **Name**: `emiringkay-web`
-   - **Language / Environment**: **Docker**
-   - **Region**: Same as database (e.g. Singapore)
+   - **Region**: **Singapore** (or closest to you)
    - **Branch**: `main`
-   - **Plan**: Starter or Free
-   - **Health Check Path**: `/up`
-
-### Step 3: Add Environment Variables
-In the **Environment** tab of your new Web Service, add the following key-value pairs:
-
-| Key | Value | Description |
-|---|---|---|
-| `APP_NAME` | `Emiringkay` | Application name |
-| `APP_ENV` | `production` | Production environment |
-| `APP_DEBUG` | `false` | Disable debug mode for security |
-| `APP_KEY` | *(Click "Generate")* or run `php artisan key:generate --show` | 32-char encryption key |
-| `DB_CONNECTION` | `pgsql` | PostgreSQL driver |
-| `DATABASE_URL` | *(Paste Internal Database URL from Step 1)* | Connection string |
-| `BROADCAST_CONNECTION` | `reverb` | Real-time WebSocket broadcasting |
-| `QUEUE_CONNECTION` | `database` | Background job processing |
-| `SESSION_DRIVER` | `database` | Scalable session storage |
-| `CACHE_STORE` | `database` | Shared cache |
-| `REVERB_APP_ID` | `759439` | Reverb App ID |
-| `REVERB_APP_KEY` | `qsgvmwadpmdqqovwougw` | Reverb Public Key |
-| `REVERB_APP_SECRET` | `uhusoopdvye1o9opnju8` | Reverb Secret Key |
-| `REVERB_HOST` | `0.0.0.0` | Bind host |
-| `REVERB_PORT` | `8080` | Internal port proxied by Nginx |
-| `REVERB_SCHEME` | `http` | Internal scheme |
-| `VITE_REVERB_APP_KEY` | `qsgvmwadpmdqqovwougw` | Public client WebSocket key |
-| `VITE_REVERB_PORT` | `443` | Public TLS WebSocket port |
-| `VITE_REVERB_SCHEME` | `https` | Public TLS scheme |
-
-4. Click **Create Web Service**.
+   - **Language / Runtime**: Select **Docker** (it will automatically find the `Dockerfile`)
+   - **Instance Type / Plan**: Select **Free ($0/month)**
+5. Expand **Advanced** and set **Health Check Path**: `/up`
+6. Add these Environment Variables:
+   - `APP_NAME` = `Emiringkay`
+   - `APP_ENV` = `production`
+   - `APP_DEBUG` = `false`
+   - `APP_KEY` = `base64:lIaIQLTRzpkDFv/Rv7a2UY7yKMjReXWj2KaOSd4aeao=` *(or generate your own)*
+   - `DB_CONNECTION` = `sqlite`
+   - `BROADCAST_CONNECTION` = `reverb`
+   - `QUEUE_CONNECTION` = `database`
+   - `SESSION_DRIVER` = `database`
+   - `CACHE_STORE` = `database`
+   - `REVERB_APP_ID` = `759439`
+   - `REVERB_APP_KEY` = `qsgvmwadpmdqqovwougw`
+   - `REVERB_APP_SECRET` = `uhusoopdvye1o9opnju8`
+   - `REVERB_HOST` = `0.0.0.0`
+   - `REVERB_PORT` = `8080`
+   - `REVERB_SCHEME` = `http`
+7. Click **Create Web Service**. It will build and go live for free at `https://<your-app>.onrender.com`.
 
 ---
 
-## Verifying Your Deployment
-
-Once Render finishes building:
-1. Open your assigned URL: `https://<your-service-name>.onrender.com`.
-2. Check the health check endpoint: `https://<your-service-name>.onrender.com/up` (should return HTTP 200).
-3. Test matching on the landing screen, join a Soft Night Plaza space, and test collaborative activities!
-
----
-
-## Zero-Downtime & Auto Deploy
-
-Every time you `git push` to your connected branch, Render will automatically:
-1. Build the updated frontend assets with Vite.
-2. Build the optimized PHP 8.4 container.
-3. Run zero-downtime health-checked deployment with rollbacks in case of errors.
+### Option B: Using the Updated Free Blueprint
+1. Commit and push the updated `render.yaml`:
+   ```bash
+   git push origin main
+   ```
+2. Go to **New +** -> **Blueprint** in Render.
+3. Select your repository. Notice the plan is now **Free** and total monthly cost is **$0**.
+4. Click **Apply**.
