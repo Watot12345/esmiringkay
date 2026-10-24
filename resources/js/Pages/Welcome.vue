@@ -78,12 +78,14 @@ const vibes: VibeOption[] = [
 const selectedVibe = ref<VibeType>((props.defaultVibe as VibeType) || 'Chill');
 const selectedMode = ref<ModeType>('text');
 const isFindingMatch = ref(false);
+const secondsWaiting = ref(0);
 
 const activeVibeData = computed(() => {
   return vibes.find((v) => v.name === selectedVibe.value) || vibes[0];
 });
 
 let pollInterval: any = null;
+let timerInterval: any = null;
 
 function getClientId(): string {
   if (typeof window === 'undefined') return 'guest_' + Math.random().toString(36).substring(2, 9);
@@ -95,17 +97,61 @@ function getClientId(): string {
   return id;
 }
 
-async function handleStart() {
+function handleCancel() {
   if (pollInterval) clearInterval(pollInterval);
-  isFindingMatch.value = true;
+  if (timerInterval) clearInterval(timerInterval);
+  pollInterval = null;
+  timerInterval = null;
+  isFindingMatch.value = false;
+  secondsWaiting.value = 0;
+}
+
+async function handleMatchCompanion() {
   const userId = getClientId();
+  try {
+    const res = await fetch('/match', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify({
+        vibe: selectedVibe.value,
+        mode: selectedMode.value,
+        user_id: userId,
+        companion: true,
+      }),
+    });
+
+    const data = await res.json();
+    if (data.status === 'matched' && data.room_id) {
+      handleCancel();
+      router.visit(`/room/${data.room_id}`);
+    } else {
+      handleCancel();
+    }
+  } catch (e) {
+    console.error(e);
+    handleCancel();
+  }
+}
+
+async function handleStart() {
+  handleCancel();
+  isFindingMatch.value = true;
+  secondsWaiting.value = 0;
+  const userId = getClientId();
+
+  timerInterval = setInterval(() => {
+    secondsWaiting.value++;
+  }, 1000);
 
   try {
     const res = await fetch('/match', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-CSRF-TOKEN': (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '',
+        'Accept': 'application/json',
       },
       body: JSON.stringify({
         vibe: selectedVibe.value,
@@ -114,9 +160,17 @@ async function handleStart() {
       }),
     });
 
+    if (!res.ok) {
+      console.error('Match error status:', res.status);
+      handleCancel();
+      alert('Could not connect to matchmaking queue. Please try again.');
+      return;
+    }
+
     const data = await res.json();
     if (data.status === 'matched' && data.room_id) {
       setTimeout(() => {
+        handleCancel();
         router.visit(`/room/${data.room_id}`);
       }, 1200); // Kissing bubbles matching reveal
     } else if (data.status === 'waiting' && data.ticket_id) {
@@ -124,20 +178,27 @@ async function handleStart() {
       const ticketId = data.ticket_id;
       pollInterval = setInterval(async () => {
         try {
-          const pollRes = await fetch(`/match/status?ticket_id=${ticketId}`);
-          const pollData = await pollRes.json();
-          if (pollData.status === 'matched' && pollData.room_id) {
-            clearInterval(pollInterval);
-            router.visit(`/room/${pollData.room_id}`);
+          const pollRes = await fetch(`/match/status?ticket_id=${ticketId}`, {
+            headers: { 'Accept': 'application/json' },
+          });
+          if (pollRes.ok) {
+            const pollData = await pollRes.json();
+            if (pollData.status === 'matched' && pollData.room_id) {
+              handleCancel();
+              router.visit(`/room/${pollData.room_id}`);
+            }
           }
         } catch (err) {
           console.error('Polling error', err);
         }
       }, 1000);
+    } else {
+      handleCancel();
     }
   } catch (e) {
     console.error(e);
-    isFindingMatch.value = false;
+    handleCancel();
+    alert('Network error connecting to matching queue.');
   }
 }
 </script>
@@ -169,7 +230,11 @@ async function handleStart() {
     <!-- Full Screen Loading Overlay with Kissing Bubbles Logo Mark -->
     <LoadingScreen
       v-if="isFindingMatch"
-      :status-text="`Finding someone in ${selectedVibe} vibe...`"
+      :status-text="secondsWaiting > 6 ? `Still looking for someone in ${selectedVibe} vibe...` : `Finding someone in ${selectedVibe} vibe...`"
+      :seconds-waiting="secondsWaiting"
+      :show-companion-option="secondsWaiting >= 5"
+      @cancel="handleCancel"
+      @match-companion="handleMatchCompanion"
     />
 
     <!-- Top Navigation Bar -->

@@ -16,6 +16,14 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->trustProxies(at: '*');
 
+        $middleware->validateCsrfTokens(except: [
+            'match',
+            'match/*',
+            'room/*',
+            'circle/*',
+            'plaza/*',
+        ]);
+
         $middleware->web(append: [
             HandleInertiaRequests::class,
         ]);

@@ -54,10 +54,27 @@ class MeetController extends Controller
             'mode' => 'required|string|in:text,video,mask',
             'ticket_id' => 'nullable|string',
             'user_id' => 'nullable|string',
+            'companion' => 'nullable|boolean',
         ]);
 
         $ticketId = $validated['ticket_id'] ?? (string) Str::uuid();
         $userId = $validated['user_id'] ?? (string) ($request->user()?->id ?? session()->getId());
+
+        // Instant test companion room if requested or solo testing
+        if (! empty($validated['companion'])) {
+            $room = Room::create([
+                'type' => $validated['mode'],
+                'vibe' => $validated['vibe'],
+                'started_at' => now(),
+            ]);
+
+            return response()->json([
+                'status' => 'matched',
+                'room_id' => $room->id,
+                'vibe' => $room->vibe,
+                'mode' => $room->type,
+            ]);
+        }
 
         $room = $this->matchingEngine->attemptMatch(
             ticketId: $ticketId,
