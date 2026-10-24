@@ -13,8 +13,5 @@ storage/framework/cache/*
 storage/framework/sessions/*
 storage/framework/views/*
 tests
-Dockerfile
-docker
-render.yaml
 *.md
 Direction A Bubbles@2x.png
