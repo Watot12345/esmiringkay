@@ -49,11 +49,39 @@ const remoteVideoRef = ref<HTMLVideoElement | null>(null);
 
 // Consent blur for video/camera (starts blurred per 08-workflow.md Section 2)
 const strangerUnblurred = ref(props.room.type === 'text');
+let roomChannel: any = null;
 
 onMounted(async () => {
   timerInterval = setInterval(() => {
     seconds.value++;
   }, 1000);
+
+  // Connect to real Reverb WebSocket channel for live room peers
+  if (typeof window !== 'undefined' && (window as any).Echo) {
+    roomChannel = (window as any).Echo.channel(`room.${props.room.id}`)
+      .listen('.message.sent', (data: any) => {
+        if (data.senderId !== props.currentUserId) {
+          messages.value.push({
+            sender: 'stranger',
+            text: data.body,
+            time: 'Now',
+          });
+        }
+      })
+      .listen('.webrtc.signal', (data: any) => {
+        if (data.senderId !== props.currentUserId) {
+          handleSignal(data.signalType, data.payload);
+        }
+      })
+      .listen('.room.ended', () => {
+        showPostCall.value = true;
+      })
+      .listen('.keep.requested', (data: any) => {
+        if (data.senderId !== props.currentUserId) {
+          strangerKeepType.value = data.keepType;
+        }
+      });
+  }
 
   // If room is video or mask mode, request media
   if (props.room.type !== 'text') {
@@ -90,6 +118,9 @@ watch(remoteStream, (newStream) => {
 
 onUnmounted(() => {
   if (timerInterval) clearInterval(timerInterval);
+  if (roomChannel && typeof window !== 'undefined' && (window as any).Echo) {
+    (window as any).Echo.leave(`room.${props.room.id}`);
+  }
   closePeerConnection();
 });
 
@@ -99,16 +130,11 @@ function formatTimer(s: number) {
   return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 }
 
-// Chat state
+// Chat state - authentic live messaging between peers
 const messages = ref<{ sender: 'you' | 'stranger' | 'system'; text: string; time: string }[]>([
   {
     sender: 'system',
     text: `Connected with a stranger in ${props.room.vibe} vibe. Say hello!`,
-    time: 'Now',
-  },
-  {
-    sender: 'stranger',
-    text: 'Hey there! How has your night been so far?',
     time: 'Now',
   },
 ]);
@@ -136,17 +162,6 @@ async function sendMessage() {
   } catch (e) {
     console.error(e);
   }
-
-  // Friendly simulated reply after short delay
-  setTimeout(() => {
-    if (!showPostCall.value) {
-      messages.value.push({
-        sender: 'stranger',
-        text: 'That is really nice to hear. Such a relief to take a breather here.',
-        time: 'Now',
-      });
-    }
-  }, 1800);
 }
 
 // Activities drawer

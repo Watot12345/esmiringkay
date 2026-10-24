@@ -92,16 +92,33 @@ class MatchingEngine
                 $this->removeCandidate($key, $candidate);
                 $this->removeTicket($key, $ticketId);
 
-                // Create live Room
-                return Room::create([
+                // Create live Room for both peers
+                $room = Room::create([
                     'type' => $mode,
                     'vibe' => $vibe,
                     'started_at' => now(),
                 ]);
+
+                // Save match for the waiting user's ticket
+                Cache::put("ticket_match:{$candidate['ticket_id']}", [
+                    'room_id' => $room->id,
+                    'vibe' => $vibe,
+                    'mode' => $mode,
+                ], 120);
+
+                return $room;
             }
 
             return null;
         });
+    }
+
+    /**
+     * Check if a waiting ticket has been paired with a live room.
+     */
+    public function getTicketMatch(string $ticketId): ?array
+    {
+        return Cache::get("ticket_match:{$ticketId}");
     }
 
     /**

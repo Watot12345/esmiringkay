@@ -82,18 +82,37 @@ class MeetController extends Controller
             mode: $validated['mode']
         );
 
-        $instantRoom = Room::create([
-            'type' => $validated['mode'],
+        return response()->json([
+            'status' => 'waiting',
+            'ticket_id' => $ticketId,
             'vibe' => $validated['vibe'],
-            'started_at' => now(),
+            'mode' => $validated['mode'],
         ]);
+    }
+
+    /**
+     * Poll ticket status while waiting in matching queue
+     */
+    public function matchStatus(Request $request): JsonResponse
+    {
+        $ticketId = $request->query('ticket_id');
+        if (! $ticketId) {
+            return response()->json(['status' => 'invalid'], 400);
+        }
+
+        $match = $this->matchingEngine->getTicketMatch($ticketId);
+        if ($match) {
+            return response()->json([
+                'status' => 'matched',
+                'room_id' => $match['room_id'],
+                'vibe' => $match['vibe'],
+                'mode' => $match['mode'],
+            ]);
+        }
 
         return response()->json([
-            'status' => 'matched',
-            'room_id' => $instantRoom->id,
+            'status' => 'waiting',
             'ticket_id' => $ticketId,
-            'vibe' => $instantRoom->vibe,
-            'mode' => $instantRoom->type,
         ]);
     }
 

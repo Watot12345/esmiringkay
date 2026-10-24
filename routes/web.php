@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Route;
 // 1. Landing & Meet flow
 Route::get('/', [MeetController::class, 'index'])->name('home');
 Route::post('/match', [MeetController::class, 'match'])->middleware('throttle:matching')->name('match');
+Route::get('/match/status', [MeetController::class, 'matchStatus'])->name('match.status');
 Route::get('/room/{id}', [MeetController::class, 'room'])->name('room.show');
 
 // 2. Realtime Room actions & WebRTC signaling

@@ -21,20 +21,53 @@ test('home meet screen renders successfully', function () {
     );
 });
 
-test('user can initiate matching with vibe and mode', function () {
-    $response = $this->postJson('/match', [
+test('two users can match and enter the exact same room', function () {
+    // User A joins matching queue
+    $resA = $this->postJson('/match', [
         'vibe' => 'Chill',
         'mode' => 'text',
+        'user_id' => 'user_alice',
+        'ticket_id' => 'ticket_alice',
     ]);
 
-    $response->assertStatus(200)
+    $resA->assertStatus(200)
+        ->assertJson([
+            'status' => 'waiting',
+            'ticket_id' => 'ticket_alice',
+            'vibe' => 'Chill',
+            'mode' => 'text',
+        ]);
+
+    // User B joins matching queue with same vibe
+    $resB = $this->postJson('/match', [
+        'vibe' => 'Chill',
+        'mode' => 'text',
+        'user_id' => 'user_bob',
+        'ticket_id' => 'ticket_bob',
+    ]);
+
+    $resB->assertStatus(200)
         ->assertJson([
             'status' => 'matched',
             'vibe' => 'Chill',
             'mode' => 'text',
         ]);
 
+    $roomId = $resB->json('room_id');
+    expect($roomId)->not->toBeNull();
+
+    // User A polls match status and receives the EXACT same room_id
+    $statusRes = $this->getJson('/match/status?ticket_id=ticket_alice');
+    $statusRes->assertStatus(200)
+        ->assertJson([
+            'status' => 'matched',
+            'room_id' => $roomId,
+            'vibe' => 'Chill',
+            'mode' => 'text',
+        ]);
+
     $this->assertDatabaseHas('rooms', [
+        'id' => $roomId,
         'vibe' => 'Chill',
         'type' => 'text',
     ]);

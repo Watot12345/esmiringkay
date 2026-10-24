@@ -83,8 +83,23 @@ const activeVibeData = computed(() => {
   return vibes.find((v) => v.name === selectedVibe.value) || vibes[0];
 });
 
+let pollInterval: any = null;
+
+function getClientId(): string {
+  if (typeof window === 'undefined') return 'guest_' + Math.random().toString(36).substring(2, 9);
+  let id = sessionStorage.getItem('emiringkay_client_id');
+  if (!id) {
+    id = 'user_' + Math.random().toString(36).substring(2, 10);
+    sessionStorage.setItem('emiringkay_client_id', id);
+  }
+  return id;
+}
+
 async function handleStart() {
+  if (pollInterval) clearInterval(pollInterval);
   isFindingMatch.value = true;
+  const userId = getClientId();
+
   try {
     const res = await fetch('/match', {
       method: 'POST',
@@ -95,14 +110,30 @@ async function handleStart() {
       body: JSON.stringify({
         vibe: selectedVibe.value,
         mode: selectedMode.value,
+        user_id: userId,
       }),
     });
 
     const data = await res.json();
-    if (data.room_id) {
+    if (data.status === 'matched' && data.room_id) {
       setTimeout(() => {
         router.visit(`/room/${data.room_id}`);
-      }, 1400); // Elegant kissing bubbles pause
+      }, 1200); // Kissing bubbles matching reveal
+    } else if (data.status === 'waiting' && data.ticket_id) {
+      // User is in queue waiting for real peer
+      const ticketId = data.ticket_id;
+      pollInterval = setInterval(async () => {
+        try {
+          const pollRes = await fetch(`/match/status?ticket_id=${ticketId}`);
+          const pollData = await pollRes.json();
+          if (pollData.status === 'matched' && pollData.room_id) {
+            clearInterval(pollInterval);
+            router.visit(`/room/${pollData.room_id}`);
+          }
+        } catch (err) {
+          console.error('Polling error', err);
+        }
+      }, 1000);
     }
   } catch (e) {
     console.error(e);
