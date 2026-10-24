@@ -1,0 +1,20 @@
+.git
+.github
+.agents
+.claude
+.env
+.env.backup
+.phpunit.result.cache
+node_modules
+vendor
+storage/*.key
+storage/logs/*
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/views/*
+tests
+Dockerfile
+docker
+render.yaml
+*.md
+Direction A Bubbles@2x.png

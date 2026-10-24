@@ -1,0 +1,55 @@
+services:
+  - type: web
+    name: emiringkay-web
+    env: docker
+    plan: starter
+    region: singapore
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /up
+    autoDeploy: true
+    envVars:
+      - key: APP_NAME
+        value: Emiringkay
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: "false"
+      - key: APP_KEY
+        generateValue: true
+      - key: DB_CONNECTION
+        value: pgsql
+      - key: DATABASE_URL
+        fromDatabase:
+          name: emiringkay-postgres
+          property: connectionString
+      - key: BROADCAST_CONNECTION
+        value: reverb
+      - key: QUEUE_CONNECTION
+        value: database
+      - key: SESSION_DRIVER
+        value: database
+      - key: CACHE_STORE
+        value: database
+      - key: REVERB_APP_ID
+        value: "759439"
+      - key: REVERB_APP_KEY
+        value: "qsgvmwadpmdqqovwougw"
+      - key: REVERB_APP_SECRET
+        value: "uhusoopdvye1o9opnju8"
+      - key: REVERB_SERVER_HOST
+        value: "0.0.0.0"
+      - key: REVERB_SERVER_PORT
+        value: "8080"
+      - key: REVERB_HOST
+        value: "0.0.0.0"
+      - key: REVERB_PORT
+        value: "8080"
+      - key: REVERB_SCHEME
+        value: "http"
+
+databases:
+  - name: emiringkay-postgres
+    databaseName: emiringkay
+    user: emiringkay_user
+    plan: starter
+    region: singapore
