@@ -17,7 +17,9 @@ services:
       - key: APP_KEY
         value: "base64:lIaIQLTRzpkDFv/Rv7a2UY7yKMjReXWj2KaOSd4aeao="
       - key: DB_CONNECTION
-        value: sqlite
+        value: pgsql
+      - key: DATABASE_URL
+        sync: false
       - key: BROADCAST_CONNECTION
         value: reverb
       - key: QUEUE_CONNECTION
