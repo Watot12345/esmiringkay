@@ -24,6 +24,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'plaza/*',
         ]);
 
+        $middleware->trimStrings(except: ['payload.sdp']);
+
         $middleware->web(append: [
             HandleInertiaRequests::class,
         ]);

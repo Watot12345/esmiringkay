@@ -1,6 +1,13 @@
 import { ref } from 'vue';
 
 export function useWebRTC() {
+  /** SDP must end with CRLF; guard against intermediaries trimming it. */
+  function normalizeSdp(payload: any) {
+    if (payload && typeof payload.sdp === 'string' && !payload.sdp.endsWith('\r\n')) {
+      return { ...payload, sdp: payload.sdp.replace(/\s+$/, '') + '\r\n' };
+    }
+    return payload;
+  }
   const localStream = ref<MediaStream | null>(null);
   const remoteStream = ref<MediaStream | null>(null);
   const isCamActive = ref(true);
@@ -182,7 +189,7 @@ export function useWebRTC() {
 
     try {
       if (signalType === 'offer') {
-        await peerConnection.setRemoteDescription(new RTCSessionDescription(payload));
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(normalizeSdp(payload)));
         await flushCandidateQueue();
         const answer = await peerConnection.createAnswer();
         await peerConnection.setLocalDescription(answer);
@@ -193,7 +200,7 @@ export function useWebRTC() {
           signalSender('answer', answer);
         }
       } else if (signalType === 'answer') {
-        await peerConnection.setRemoteDescription(new RTCSessionDescription(payload));
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(normalizeSdp(payload)));
         await flushCandidateQueue();
       } else if (signalType === 'candidate') {
         if (!peerConnection.remoteDescription) {

@@ -251,3 +251,18 @@ test('two simultaneous users in the same queue always end up in one room', funct
     $this->getJson('/match/status?ticket_id=t1')
         ->assertJson(['status' => 'matched', 'room_id' => $second->json('room_id')]);
 });
+
+test('webrtc sdp payload keeps its trailing CRLF so browsers can parse it', function () {
+    Event::fake([WebRtcSignal::class]);
+
+    $room = Room::create(['type' => 'video', 'vibe' => 'Chill', 'started_at' => now()]);
+    $sdp = "v=0\r\no=- 1 2 IN IP4 127.0.0.1\r\ns=-\r\n";
+
+    $this->postJson("/room/{$room->id}/signal", [
+        'signalType' => 'offer',
+        'payload' => ['type' => 'offer', 'sdp' => $sdp],
+        'sender_id' => 'a',
+    ])->assertOk();
+
+    Event::assertDispatched(WebRtcSignal::class, fn ($e) => $e->payload['sdp'] === $sdp);
+});
