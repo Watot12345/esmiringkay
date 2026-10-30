@@ -1,12 +1,14 @@
 <?php
 
 use App\Domain\Connections\Models\Connection;
+use App\Domain\Matching\Services\MatchingEngine;
 use App\Domain\Rooms\Events\KeepRequested;
 use App\Domain\Rooms\Events\MessageSent;
 use App\Domain\Rooms\Events\WebRtcSignal;
 use App\Domain\Rooms\Models\Activity;
 use App\Domain\Rooms\Models\Room;
 use App\Models\User;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Event;
 
 test('complete simulation: two real users meet, chat, share doodle, and become circle friends', function () {
@@ -226,4 +228,26 @@ test('webrtc video signaling: 2 devices (one with camera, one without) handshake
             && $e->senderId === (string) $phoneUser->id
             && $e->signalType === 'candidate';
     });
+});
+
+test('abandoned waiting tickets are never paired with a new user (no ghost rooms)', function () {
+    $engine = app(MatchingEngine::class);
+
+    $engine->enqueue('ghost-ticket', 'ghost-user', 'Vent', 'video');
+    Cache::forget('ticket_alive:ghost-ticket');
+
+    $res = $this->postJson('/match', ['vibe' => 'Vent', 'mode' => 'video', 'user_id' => 'real-user']);
+
+    $res->assertOk()->assertJson(['status' => 'waiting']);
+});
+
+test('two simultaneous users in the same queue always end up in one room', function () {
+    $first = $this->postJson('/match', ['vibe' => 'Play', 'mode' => 'text', 'user_id' => 'u1', 'ticket_id' => 't1']);
+    $first->assertJson(['status' => 'waiting']);
+
+    $second = $this->postJson('/match', ['vibe' => 'Play', 'mode' => 'text', 'user_id' => 'u2', 'ticket_id' => 't2']);
+    $second->assertJson(['status' => 'matched']);
+
+    $this->getJson('/match/status?ticket_id=t1')
+        ->assertJson(['status' => 'matched', 'room_id' => $second->json('room_id')]);
 });

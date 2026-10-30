@@ -77,7 +77,7 @@ class MeetController extends Controller
             ]);
         }
 
-        $room = $this->matchingEngine->attemptMatch(
+        $room = $this->matchingEngine->matchOrEnqueue(
             ticketId: $ticketId,
             userId: $userId,
             vibe: $validated['vibe'],
@@ -92,13 +92,6 @@ class MeetController extends Controller
                 'mode' => $room->type,
             ]);
         }
-
-        $this->matchingEngine->enqueue(
-            ticketId: $ticketId,
-            userId: $userId,
-            vibe: $validated['vibe'],
-            mode: $validated['mode']
-        );
 
         return response()->json([
             'status' => 'waiting',
@@ -127,6 +120,8 @@ class MeetController extends Controller
                 'mode' => $match['mode'],
             ]);
         }
+
+        $this->matchingEngine->heartbeat($ticketId);
 
         return response()->json([
             'status' => 'waiting',
