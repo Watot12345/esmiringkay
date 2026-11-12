@@ -30,9 +30,25 @@ if ! grep -q "^APP_KEY=base64:" /var/www/html/.env; then
     echo "APP_KEY=${APP_KEY}" >> /var/www/html/.env
 fi
 
-# Ensure SQLite file exists if using sqlite connection
-if [ "${DB_CONNECTION:-sqlite}" = "sqlite" ] && [ ! -f "/var/www/html/database/database.sqlite" ]; then
-    touch /var/www/html/database/database.sqlite
+# Ensure SQLite file exists
+touch /var/www/html/database/database.sqlite
+
+# Verify database connectivity; if remote connection fails (e.g. paused/deleted Supabase or bad credentials), fallback to SQLite
+if [ "${DB_CONNECTION:-sqlite}" != "sqlite" ]; then
+    echo "Testing ${DB_CONNECTION} database connection..."
+    if ! php /var/www/html/artisan tinker --execute 'DB::connection()->getPdo();' >/dev/null 2>&1; then
+        echo "WARNING: Configured ${DB_CONNECTION} database connection failed! Falling back to embedded SQLite..."
+        export DB_CONNECTION=sqlite
+        unset DATABASE_URL
+        if grep -q "^DB_CONNECTION=" /var/www/html/.env; then
+            sed -i 's/^DB_CONNECTION=.*/DB_CONNECTION=sqlite/' /var/www/html/.env
+        else
+            echo "DB_CONNECTION=sqlite" >> /var/www/html/.env
+        fi
+        sed -i '/^DATABASE_URL=/d' /var/www/html/.env 2>/dev/null || true
+    else
+        echo "Database connection verified."
+    fi
 fi
 
 # Run database migrations
